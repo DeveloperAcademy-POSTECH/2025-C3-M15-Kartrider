@@ -12,4 +12,5 @@ enum Route: Hashable {
     case intro
     case story
     case outro
+    case storage
 }

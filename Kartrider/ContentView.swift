@@ -21,6 +21,7 @@ struct ContentView: View {
                 case .intro: IntroView(path: $path)
                 case .story: StoryView(path: $path)
                 case .outro: OutroView(path: $path)
+                case .storage: StorageView(path: $path)
                 }
             }
         }

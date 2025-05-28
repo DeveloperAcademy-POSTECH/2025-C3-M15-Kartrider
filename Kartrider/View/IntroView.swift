@@ -14,7 +14,7 @@ struct IntroView: View {
     var body: some View {
         VStack {
             Text("인트로페이지")
-            Text("시작하기").onTapGesture {
+            Text("[이야기 시작하기]").onTapGesture {
                 path.append(Route.story)
             }
         }

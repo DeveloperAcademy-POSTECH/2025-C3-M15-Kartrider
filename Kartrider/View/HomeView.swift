@@ -12,8 +12,24 @@ struct HomeView: View {
     @Binding var path: NavigationPath
 
     var body: some View {
-        Text("홈화면이고요여기썸네일이들어가겠죠?눌러보세요").onTapGesture {
-            path.append(Route.intro)
+        VStack {
+            HStack {
+                Spacer()
+                // 보관함 버튼
+                Button {
+                    path.append(Route.storage)
+                } label: {
+                    Image(systemName: "book")
+                        .font(.title)
+                        .padding()
+                        .foregroundColor(.black)
+                }
+            }
+            Spacer()
+            Text("[[대표 썸네일 스토리 - 눌러보세요]]").onTapGesture {
+                path.append(Route.intro)
+            }
+            Spacer()
         }
     }
 }
