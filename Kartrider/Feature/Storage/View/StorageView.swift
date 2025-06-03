@@ -10,6 +10,8 @@ import SwiftUI
 struct StorageView: View {
 
     @EnvironmentObject private var coordinator: NavigationCoordinator
+    @Environment(\.modelContext) private var context
+    let items = ["1", "2", "3"]
 
     var body: some View {
         NavigationBarWrapper(
@@ -18,11 +20,13 @@ struct StorageView: View {
         ) {
             VStack {
                 Spacer()
-                Text("[[ 스토리1 ]]")
-                    .onTapGesture {
+                List {
+                    ForEach(items, id: \.self) {
+                        item in Text(item)
+                    }.onTapGesture {
                         coordinator.push(Route.history)
                     }
-                Spacer()
+                }.listStyle(PlainListStyle())
             }
         }
     }
