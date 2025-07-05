@@ -23,7 +23,12 @@ class WatchOutroViewModel: ObservableObject {
     init() {
         connectManager.$isTimerRunning
             .receive(on: DispatchQueue.main)
-            .assign(to: \.isTimerRunning, on: self)
+            .sink { newValue in
+                if newValue {
+                    self.startTimer()
+                }
+                self.isTimerRunning = newValue
+            }
             .store(in: &cancellable)
     }
 

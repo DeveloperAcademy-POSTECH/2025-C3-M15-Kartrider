@@ -104,19 +104,19 @@ class WatchConnectManager: NSObject, WCSessionDelegate, ObservableObject {
             print("[DEBUG] stage did change to '\(self.currentStage)'")
 
             switch currentStage {
-            case "idle":
+            case Stage.idle.rawValue:
                 print("[IDLE] startContent: \(self.hasStartedContent)")
                 self.message = [
                     "currentStage": "idle",
                     "hasStartedContent": self.hasStartedContent,
                 ]
-            case "exposition":
+            case Stage.exposition.rawValue:
                 print("[EXPOSITION] isPlayTTS: \(self.isTTSPlaying)")
                 self.message = [
                     "currentStage": "exposition",
                     "isTTSPlaying": self.isTTSPlaying,
                 ]
-            case "decision":
+            case Stage.decision.rawValue:
                 print(
                     "[DECISION] isTimerRunning: \(self.isTimerRunning), decisionIndex: \(self.decisionIndex), isFirstRequest: \(self.isFirstRequest)"
                 )
@@ -126,7 +126,7 @@ class WatchConnectManager: NSObject, WCSessionDelegate, ObservableObject {
                     "decisionIndex": self.decisionIndex,
                     "isFirstRequest": self.isFirstRequest,
                 ]
-            case "ending":
+            case Stage.ending.rawValue:
                 print("[ENDING] isTimerRunning: \(self.isTimerRunning)")
                 self.message = [
                     "currentStage": "ending",

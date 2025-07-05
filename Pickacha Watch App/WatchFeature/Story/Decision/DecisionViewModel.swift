@@ -36,16 +36,21 @@ class DecisionViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink {
                 newValue in
-                if newValue {
-                    self.resetState()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        self.isTimerRunning = true  // 타이머 화면이 2번 그려지는데(0.0001초 동안 타이머->선택지재생->타이머) 약간의 로직 수정이 필요합니다
-                        self.makeChoice()
+                if self.connectManager.currentStage == Stage.decision.rawValue {
+                    if newValue {
+                        self.resetState()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            self.isTimerRunning = true  // 타이머 화면이 2번 그려지는데(0.0001초 동안 타이머->선택지재생->타이머) 약간의 로직 수정이 필요합니다
+                            self.makeChoice()
+                        }
+                    } else {
+                        self.isTimerRunning = false
                     }
+                    print("[DECISION] isTimerRunning: \(self.isTimerRunning)")
                 } else {
+
                     self.isTimerRunning = false
                 }
-                print("[DECISION] isTimerRunning: \(self.isTimerRunning)")
             }
             .store(in: &cancellable)
 

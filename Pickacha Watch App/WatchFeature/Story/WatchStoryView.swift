@@ -12,15 +12,14 @@ struct WatchStoryView: View {
     @EnvironmentObject private var coordinator: WatchNavigationCoordinator
     @StateObject private var watchStoryViewModel = WatchStoryViewModel()
 
-    // TODO: 컴포넌트로 분리 - 로직 수정 -> Gigi: 컴포넌트.. 어떤 거를 만들어야 하나요..?
     var body: some View {
         VStack {
             switch watchStoryViewModel.currentStage {
-            case "exposition":
+            case Stage.exposition.rawValue:
                 ExpositionView()
-            case "decision":
+            case Stage.decision.rawValue:
                 DecisionView()
-            case "ending":
+            case Stage.ending.rawValue:
                 Color.clear.onAppear {
                     coordinator.push(.outro)
                 }
