@@ -14,14 +14,14 @@ struct Seeder {
         await deleteAll(context: context)
         
         do {
-            try JSONParser<StoryJSON>(fileName: Constants.JSONFileName.storyDummy).insertData(into: context)
+            try JSONParser<StoryJSON>(fileName: Constants.JSONFileName.storyData).insertData(into: context)
             print("[INFO] Story 시드 완료")
         } catch {
             print("[ERROR] Story 파싱 실패: \(error)")
         }
         
         do {
-            try JSONParser<TournamentJSON>(fileName: Constants.JSONFileName.tournamentDummy).insertData(into: context)
+            try JSONParser<TournamentJSON>(fileName: Constants.JSONFileName.tournamentData).insertData(into: context)
             print("[INFO] Tournament 시드 완료")
         } catch {
             print("[ERROR] Tournament 파싱 실패: \(error)")

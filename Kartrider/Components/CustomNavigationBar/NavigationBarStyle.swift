@@ -30,7 +30,8 @@ enum NavigationBarStyle: Equatable {
     var rightButton: NavigationButtonConfig? {
         switch self {
         case .home:
-            return .book(color: .black)
+            return nil
+//            return .book(color: .black)
         default:
             return nil
         }

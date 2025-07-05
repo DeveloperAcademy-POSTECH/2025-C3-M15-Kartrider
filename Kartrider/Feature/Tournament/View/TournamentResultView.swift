@@ -19,11 +19,12 @@ struct TournamentResultView: View {
             
             Spacer()
             
-            Text("다음 컨텐츠가 10초 후에 재생됩니다.")
-                .font(.callout)
-                .foregroundColor(Color.textSecondary)
+//            Text("다음 컨텐츠가 10초 후에 재생됩니다.")
+//                .font(.callout)
+//                .foregroundColor(Color.textSecondary)
             
-            OrangeButton(title: "다음 이야기",icon: Image(systemName: "play.fill"), action: onNextTap)
+//            OrangeButton(title: "다음 이야기",icon: Image(systemName: "play.fill"), action: onNextTap)
+            OrangeButton(title: "홈으로",icon: Image(systemName: "home.fill"), action: onNextTap)
         }
     }
 }

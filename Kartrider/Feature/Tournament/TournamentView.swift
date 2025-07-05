@@ -35,9 +35,6 @@ struct TournamentView: View {
                     TournamentResultView(winner: winner.name) {
                         coordinator.popToRoot()
                     }
-                    .task(id: tournamentViewModel.winner?.id) {
-                        await tournamentViewModel.handleTournamentEndingTTS()
-                    }
                 } else if let (firstCandidate, secondCandiate) = tournamentViewModel.currentCandidates {
                     TournamentMatchView(
                         roundDescription: tournamentViewModel.currentRoundDescription,
