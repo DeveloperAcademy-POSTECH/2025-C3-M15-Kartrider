@@ -96,6 +96,13 @@ class TournamentViewModel: ObservableObject {
             .store(in: &cancellable)
     }
 
+    deinit {
+        decisionTask?.cancel()
+        ttsManager.stop()
+        cancellable.removeAll()
+        Log.info("TournamentViewModel deinit")
+    }
+
     func setContext(_ context: ModelContext) {
         self.context = context
     }
@@ -107,7 +114,7 @@ class TournamentViewModel: ObservableObject {
                 let tournament = try contentRepository.fetchTournament(
                     by: tournamentId, context: context)
             else {
-                print("[ERROR] 토너먼트 찾을 수 없음")
+                Log.error("토너먼트 찾을 수 없음")
                 return
             }
             self.tournament = tournament
@@ -120,7 +127,7 @@ class TournamentViewModel: ObservableObject {
             matchHistory = []
             prepareNextMatch()
         } catch {
-            print("[ERROR] 토너먼트 로딩 실패 : \(error)")
+            Log.error("토너먼트 로딩 실패: \(error)")
         }
     }
 
@@ -183,8 +190,9 @@ class TournamentViewModel: ObservableObject {
                 winner: winner,
                 matchHistory: matchHistory
             )
+            Log.info("토너먼트 히스토리 저장 완료")
         } catch {
-            print("[ERROR] 토너먼트 히스토리 저장 실패 : \(error)")
+            Log.error("토너먼트 히스토리 저장 실패: \(error)")
         }
     }
 

@@ -83,6 +83,13 @@ class StoryViewModel: ObservableObject {
             .store(in: &cancellable)
     }
 
+    deinit {
+        decisionTask?.cancel()
+        ttsManager.stop()
+        cancellable.removeAll()
+        Log.info("StoryViewModel deinit")
+    }
+
     @MainActor
     func loadInitialNode(context: ModelContext) async {
         isLoading = true
@@ -132,7 +139,7 @@ class StoryViewModel: ObservableObject {
         } else if let choice = currentNode.choiceB, choice.toId == toId {
             selectedPath.append(.b)
         }
-        print("[INFO] 선택한 길: \(selectedPath)")
+        Log.info("선택한 길: \(selectedPath)")
 
         self.currentNode = nextNode
         self.decisionIndex += 1
@@ -166,7 +173,7 @@ class StoryViewModel: ObservableObject {
 
         for condition in story.endingConditions {
             if condition.path == selectedPath {
-                print("[INFO] 일치하는 엔딩 도달: \(condition.toId)")
+                Log.info("일치하는 엔딩 도달: \(condition.toId)")
                 return condition.toId
             }
         }
@@ -198,7 +205,7 @@ class StoryViewModel: ObservableObject {
 
     func toggleSpeaking() {
         if isTogglingTTS {
-            print("[INFO] 잠시 토글 비활성화중")
+            Log.debug("잠시 토글 비활성화중")
             return
         }
         isTogglingTTS = true
