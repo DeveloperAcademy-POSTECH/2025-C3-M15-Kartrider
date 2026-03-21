@@ -52,10 +52,9 @@ class StoryViewModel: ObservableObject {
 
         connectManager.$isTTSPlaying
             .receive(on: DispatchQueue.main)
-            .sink { newValue in
-                if newValue == self.isTTSPlaying {
-                    return
-                }
+            .sink { [weak self] newValue in
+                guard let self else { return }
+                if newValue == self.isTTSPlaying { return }
 
                 if newValue {
                     self.ttsManager.resume()
@@ -68,9 +67,9 @@ class StoryViewModel: ObservableObject {
 
         connectManager.$selectedOption
             .receive(on: DispatchQueue.main)
-            .sink { newValue in
-                guard let selected = newValue else { return }
-                print("[DEBUG] 워치 선택 감지: \(selected.rawValue)")
+            .sink { [weak self] newValue in
+                guard let self, let selected = newValue else { return }
+                Log.debug("워치 선택 감지: \(selected.rawValue)")
                 self.handleWatchChoice(option: selected)
                 self.connectManager.selectedOption = nil
             }
@@ -78,8 +77,8 @@ class StoryViewModel: ObservableObject {
 
         connectManager.$isTimeout
             .receive(on: DispatchQueue.main)
-            .sink { newValue in
-                self.handleTimeout(newValue)
+            .sink { [weak self] newValue in
+                self?.handleTimeout(newValue)
             }
             .store(in: &cancellable)
     }

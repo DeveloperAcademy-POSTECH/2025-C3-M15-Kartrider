@@ -72,18 +72,23 @@ class TournamentViewModel: ObservableObject {
         historyRepository: PlayHistoryRepositoryProtocol =
             PlayHistoryRepository()
     ) {
-        self.tournament = content.tournament
-        self.tournamentId = content.tournament!.id
+        guard let tournament = content.tournament else {
+            Log.fault("TournamentViewModel 초기화 실패 — content.tournament가 nil")
+            fatalError("[FATAL] TournamentViewModel 초기화 실패 — content.tournament가 nil")
+        }
+        self.tournament = tournament
+        self.tournamentId = tournament.id
         self.contentRepository = contentRepository
         self.historyRepository = historyRepository
         self.title = content.title
 
         connectManager.$selectedOption
             .receive(on: DispatchQueue.main)
-            .sink { newValue in
-                guard let option = newValue,
-                    let (a, b) = self.currentCandidates,
-                    self.selectedOption == nil
+            .sink { [weak self] newValue in
+                guard let self,
+                      let option = newValue,
+                      let (a, b) = self.currentCandidates,
+                      self.selectedOption == nil
                 else { return }
 
                 self.decisionTask?.cancel()
@@ -97,13 +102,12 @@ class TournamentViewModel: ObservableObject {
 
         connectManager.$isTimeout
             .receive(on: DispatchQueue.main)
-            .sink { newValue in
-                self.handleTimeout(newValue)
+            .sink { [weak self] newValue in
+                self?.handleTimeout(newValue)
             }
             .store(in: &cancellable)
-
     }
-    
+
     func setContext(_ context: ModelContext) {
         self.context = context
     }
