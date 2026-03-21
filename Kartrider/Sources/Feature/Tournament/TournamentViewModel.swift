@@ -27,21 +27,9 @@ class TournamentViewModel: ObservableObject {
         }
     }
     
-    @Published var isFinished = false {
-        didSet {
-            guard isFinished, let context = context else { return }
-            finishTournamentAndSave(context: context)
-        }
-    }
-    
-    @Published var winner: Candidate? {
-        didSet {
-            Task {
-                await handleTournamentEndingTTS()
-            }
-        }
-    }
-    
+    @Published var isFinished = false
+    @Published var winner: Candidate?
+
     private let contentRepository: ContentRepositoryProtocol
     private let historyRepository: PlayHistoryRepositoryProtocol
     private let tournamentId: UUID
@@ -145,6 +133,8 @@ class TournamentViewModel: ObservableObject {
                 winner = nextRoundCandidates.first
                 isFinished = true
                 currentCandidates = nil
+                if let context { finishTournamentAndSave(context: context) }
+                Task { await handleTournamentEndingTTS() }
             } else {
                 // 다음 라운드 준비
                 rounds.append(nextRoundCandidates)
