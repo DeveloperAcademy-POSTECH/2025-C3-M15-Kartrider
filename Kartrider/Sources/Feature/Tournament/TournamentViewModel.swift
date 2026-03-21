@@ -185,11 +185,11 @@ class TournamentViewModel: ObservableObject {
     }
 
     func finishTournamentAndSave(context: ModelContext) {
-        guard let winner = winner else { return }
+        guard let winner = winner, let tournament = tournament else { return }
         do {
             try historyRepository.saveTournamentHistory(
                 context: context,
-                tournament: tournament!,
+                tournament: tournament,
                 winner: winner,
                 matchHistory: matchHistory
             )
