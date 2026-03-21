@@ -85,11 +85,20 @@ class StoryViewModel: ObservableObject {
 
     deinit {
         decisionTask?.cancel()
-        ttsManager.stop()
         cancellable.removeAll()
+        let tts = ttsManager
+        DispatchQueue.main.async {
+            tts.stop()
+        }
         Log.info("StoryViewModel deinit")
     }
 
+    func cleanup() {
+        decisionTask?.cancel()
+        decisionTask = nil
+        ttsManager.stop()
+    }
+    
     @MainActor
     func loadInitialNode(context: ModelContext) async {
         isLoading = true

@@ -97,11 +97,20 @@ class TournamentViewModel: ObservableObject {
 
     deinit {
         decisionTask?.cancel()
-        ttsManager.stop()
         cancellable.removeAll()
+        let tts = ttsManager
+        DispatchQueue.main.async {
+            tts.stop()
+        }
         Log.info("TournamentViewModel deinit")
     }
 
+    func cleanup() {
+        decisionTask?.cancel()
+        decisionTask = nil
+        ttsManager.stop()
+    }
+    
     func setContext(_ context: ModelContext) {
         self.context = context
     }

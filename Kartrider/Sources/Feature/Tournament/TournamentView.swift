@@ -23,6 +23,7 @@ struct TournamentView: View {
         NavigationBarWrapper(
             navStyle: .play(title: tournamentViewModel.title),
             onTapLeft: {
+                tournamentViewModel.cleanup()
                 coordinator.pop()
             }
         ) {

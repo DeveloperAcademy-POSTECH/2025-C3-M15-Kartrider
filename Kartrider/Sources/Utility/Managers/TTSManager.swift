@@ -25,6 +25,8 @@ final class TTSManager: NSObject, @unchecked Sendable, ObservableObject {
     func speakSequentially(_ text: String) async {
         print("[INFO] speakSequentially 호출")
 
+        guard !Task.isCancelled else { return }
+
         while await self.state == .paused {
             print("[DEBUG] [speakSequentially] 일시정지 상태, 대기 중...")
             try? await Task.sleep(for: .milliseconds(100))
