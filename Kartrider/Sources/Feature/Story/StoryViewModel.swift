@@ -1,4 +1,5 @@
 import Combine
+
 //
 //  StoryViewModel.swift
 //  Kartrider
@@ -9,7 +10,6 @@ import Foundation
 import SwiftData
 
 class StoryViewModel: ObservableObject {
-
     let connectManager = IosConnectManager.shared
 
     private var cancellable = Set<AnyCancellable>()
@@ -31,7 +31,7 @@ class StoryViewModel: ObservableObject {
 
     @Published var decisionIndex = 0
     private var secPlayed = false
-    private var decisionTask: Task<Void, Never>? = nil
+    private var decisionTask: Task<Void, Never>?
 
     var ttsManager = TTSManager()
 
@@ -39,9 +39,9 @@ class StoryViewModel: ObservableObject {
         repository: ContentRepositoryProtocol = ContentRepository(),
         content: ContentMeta
     ) {
-        self.contentRepository = repository
+        contentRepository = repository
         self.content = content
-        self.startNodeId = content.story?.startNodeId ?? ""
+        startNodeId = content.story?.startNodeId ?? ""
 
         ttsManager.didSpeakingStateChanged = { [weak self] speaking in
             DispatchQueue.main.async {
@@ -54,14 +54,14 @@ class StoryViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newValue in
                 guard let self else { return }
-                if newValue == self.isTTSPlaying { return }
+                if newValue == isTTSPlaying { return }
 
                 if newValue {
-                    self.ttsManager.resume()
+                    ttsManager.resume()
                 } else {
-                    self.ttsManager.pause()
+                    ttsManager.pause()
                 }
-                self.isTTSPlaying = newValue
+                isTTSPlaying = newValue
             }
             .store(in: &cancellable)
 
@@ -70,8 +70,8 @@ class StoryViewModel: ObservableObject {
             .sink { [weak self] newValue in
                 guard let self, let selected = newValue else { return }
                 Log.debug("워치 선택 감지: \(selected.rawValue)")
-                self.handleWatchChoice(option: selected)
-                self.connectManager.selectedOption = nil
+                handleWatchChoice(option: selected)
+                connectManager.selectedOption = nil
             }
             .store(in: &cancellable)
 
@@ -97,8 +97,9 @@ class StoryViewModel: ObservableObject {
         do {
             if let storyId = content.story?.id,
                let story = try contentRepository.fetchStory(
-                by: storyId, context: context),
-                let node = story.nodes.first(where: { $0.id == startNodeId })
+                   by: storyId, context: context
+               ),
+               let node = story.nodes.first(where: { $0.id == startNodeId })
             {
                 currentNode = node
                 await handleStoryNode(node, context: context)
@@ -113,8 +114,8 @@ class StoryViewModel: ObservableObject {
 
     func goToNextNode(from currentNode: StoryNode) {
         guard let nextId = currentNode.nextId,
-            let story = currentNode.story,
-            let nextNode = story.nodes.first(where: { $0.id == nextId })
+              let story = currentNode.story,
+              let nextNode = story.nodes.first(where: { $0.id == nextId })
         else {
             errorMessage = "다음 스토리 노드를 찾을 수 없습니다"
             return
@@ -126,9 +127,9 @@ class StoryViewModel: ObservableObject {
     }
 
     func selectChoice(toId: String) {
-        guard let currentNode = currentNode,
-            let story = currentNode.story,
-            let nextNode = story.nodes.first(where: { $0.id == toId })
+        guard let currentNode,
+              let story = currentNode.story,
+              let nextNode = story.nodes.first(where: { $0.id == toId })
         else {
             errorMessage = "선택한 노드를 찾을 수 없습니다"
             return
@@ -142,13 +143,13 @@ class StoryViewModel: ObservableObject {
         Log.info("선택한 길: \(selectedPath)")
 
         self.currentNode = nextNode
-        self.decisionIndex += 1
+        decisionIndex += 1
     }
 
     @MainActor
     func handleStoryNode(_ node: StoryNode, context: ModelContext) async {
         //        await ttsManager.speakSequentially(node.text)
-        self.isSequenceInProgress = true
+        isSequenceInProgress = true
 
         if node.type == .decision {
             connectManager.isTimeout = false
@@ -163,9 +164,9 @@ class StoryViewModel: ObservableObject {
         } else if node.type == .exposition {
             connectManager.sendStageExpositionWithResume()
             await ttsManager.speakSequentially(node.text)
-            self.goToNextNode(from: node)
+            goToNextNode(from: node)
         }
-        self.isSequenceInProgress = false
+        isSequenceInProgress = false
     }
 
     private func checkEndingCondition() -> String {
@@ -186,7 +187,7 @@ class StoryViewModel: ObservableObject {
         do {
             if let storyId = content.story?.id,
                let story = try contentRepository.fetchStory(by: storyId, context: context),
-                let endingNode = story.nodes.first(where: { $0.id == toId })
+               let endingNode = story.nodes.first(where: { $0.id == toId })
             {
                 currentNode = endingNode
                 connectManager.sendStageEndingTTS()
@@ -221,8 +222,9 @@ class StoryViewModel: ObservableObject {
             self.isTogglingTTS = false
         }
     }
+
     func handleWatchChoice(option: StoryChoiceOption) {
-        guard let currentNode = currentNode else { return }
+        guard let currentNode else { return }
         connectManager.sendChoiceInterrupt()
 
         switch option {
@@ -230,6 +232,7 @@ class StoryViewModel: ObservableObject {
             if let toId = currentNode.choiceA?.toId {
                 selectChoice(toId: toId)
             }
+
         case .b:
             if let toId = currentNode.choiceB?.toId {
                 selectChoice(toId: toId)
@@ -266,7 +269,9 @@ class StoryViewModel: ObservableObject {
         decisionTask = Task {
             secPlayed = true
             connectManager.sendStageDecisionWithSecTTS(decisionIndex)
-            for text in texts { await ttsManager.speakSequentially(text) }
+            for text in texts {
+                await ttsManager.speakSequentially(text)
+            }
             connectManager.sendStageDecisionWithSecTimer(decisionIndex)
         }
     }
@@ -275,7 +280,7 @@ class StoryViewModel: ObservableObject {
         let isTimeout = newValue == true
         let noSelection = connectManager.selectedOption == nil
         guard isTimeout, noSelection,
-            let node = currentNode, node.type == .decision
+              let node = currentNode, node.type == .decision
         else { return }
 
         if connectManager.isFirstRequest == true {
@@ -288,5 +293,4 @@ class StoryViewModel: ObservableObject {
         }
         connectManager.isTimeout = false
     }
-
 }
