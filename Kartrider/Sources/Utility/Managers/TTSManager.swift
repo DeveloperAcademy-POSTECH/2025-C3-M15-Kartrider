@@ -112,7 +112,7 @@ final class TTSManager: NSObject, @unchecked Sendable, ObservableObject {
                         await self.speakSequentially(last)
                     }
                 }
-            case .finished:
+            case .finished: break
             }
         }
     }
