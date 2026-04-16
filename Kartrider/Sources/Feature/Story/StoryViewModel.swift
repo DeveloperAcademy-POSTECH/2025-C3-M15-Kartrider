@@ -1,48 +1,52 @@
-import Combine
-
 //
 //  StoryViewModel.swift
 //  Kartrider
 //
 //  Created by J on 5/31/25.
 //
+
+import Combine
 import Foundation
 import SwiftData
 
 class StoryViewModel: ObservableObject {
+    // MARK: - Properties
 
+    // 외부 의존성
     let connectManager = IosConnectManager.shared
+    var ttsManager = TTSManager()
+
+    // Repository
     private var contentRepository: ContentRepositoryProtocol?
     private var historyRepository: PlayHistoryRepositoryProtocol?
 
+    // Combine
     private var cancellable = Set<AnyCancellable>()
+    private var decisionTask: Task<Void, Never>?
+    private var nodeHandlingTask: Task<Void, Never>?
 
+    // 컨텐츠 정보
     let content: ContentMeta
     let startNodeId: String
-    private var stepHistory: [StoryStepData] = []
-    private var lastToggleTime: Date = .distantPast
+
+    // 내부 상태
+    private var recordedSteps: [StoryStepData] = []
+    private var isSecondDecisionPlayed = false
+
+    // MARK: - Published
 
     @Published var isLoading: Bool = true
     @Published var errorMessage: String?
     @Published var currentNode: StoryNode?
     @Published var isSequenceInProgress = false
     @Published var selectedPath: [StoryChoiceOption] = []
-    @Published var endingId: String = ""
+    @Published var currentEndingId: String = ""
+    @Published var decisionIndex = 0
     @Published var isTTSPlaying = false
     @Published var isTogglingTTS = false
     @Published var isTransitioningTTS = false
 
-    @Published var decisionIndex = 0
-    private var secPlayed = false
-    private var decisionTask: Task<Void, Never>?
-    private var nodeHandlingTask: Task<Void, Never>?
-
-    var ttsManager = TTSManager()
-
-    func configure(context: ModelContext) {
-        contentRepository = ContentRepository(context: context)
-        historyRepository = PlayHistoryRepository(context: context)
-    }
+    // MARK: - Init
 
     init(content: ContentMeta) {
         self.content = content
@@ -88,6 +92,15 @@ class StoryViewModel: ObservableObject {
             .store(in: &cancellable)
     }
 
+    // MARK: - Setup
+
+    func configure(context: ModelContext) {
+        contentRepository = ContentRepository(context: context)
+        historyRepository = PlayHistoryRepository(context: context)
+    }
+
+    // MARK: - LifeCycle
+
     deinit {
         decisionTask?.cancel()
         nodeHandlingTask?.cancel()
@@ -104,6 +117,8 @@ class StoryViewModel: ObservableObject {
         ttsManager.stop()
     }
 
+    // MARK: - Node Navigation
+
     @MainActor
     func loadInitialNode() async {
         isLoading = true
@@ -114,7 +129,7 @@ class StoryViewModel: ObservableObject {
                let node = story.nodes.first(where: { $0.id == startNodeId })
             {
                 currentNode = node
-                await handleStoryNode(node)
+                await processNode(node)
             } else {
                 errorMessage = "해당 스토리를 찾을 수 없습니다"
             }
@@ -145,7 +160,7 @@ class StoryViewModel: ObservableObject {
         else { return }
 
         let selectedChoice: StoryChoiceOption
-        var selectedText: String = ""
+        var selectedText = ""
 
         if let choice = currentNode.choiceA, choice.toId == toId {
             selectedPath.append(.a)
@@ -159,7 +174,7 @@ class StoryViewModel: ObservableObject {
             return
         }
 
-        stepHistory.append(StoryStepData(
+        recordedSteps.append(StoryStepData(
             nodeId: currentNode.id,
             type: currentNode.type,
             nodeText: currentNode.text,
@@ -169,11 +184,11 @@ class StoryViewModel: ObservableObject {
         ))
 
         self.currentNode = nextNode
-        self.decisionIndex += 1
+        decisionIndex += 1
     }
 
     @MainActor
-    func handleStoryNode(_ node: StoryNode) async {
+    func processNode(_ node: StoryNode) async {
         nodeHandlingTask?.cancel()
 
         nodeHandlingTask = Task { [weak self] in
@@ -185,16 +200,16 @@ class StoryViewModel: ObservableObject {
                 guard !Task.isCancelled else { return }
                 connectManager.isTimeout = false
                 connectManager.isFirstRequest = true
-                secPlayed = false
-                firstDecision(node: node)
+                isSecondDecisionPlayed = false
+                speakFirstDecision(node: node)
 
             } else if node.nextId == nil {
                 guard !Task.isCancelled else { return }
-                endingId = checkEndingCondition()
-                await goToEndingNode(toId: endingId)
+                currentEndingId = resolveEndingId()
+                await loadEndingNode(toId: currentEndingId)
 
             } else if node.type == .exposition {
-                stepHistory.append(StoryStepData(
+                recordedSteps.append(StoryStepData(
                     nodeId: node.id,
                     type: node.type,
                     nodeText: node.text,
@@ -204,14 +219,14 @@ class StoryViewModel: ObservableObject {
                 ))
                 connectManager.sendStageExpositionWithResume()
                 await ttsManager.speakSequentially(node.text)
-                self.goToNextNode(from: node)
+                goToNextNode(from: node)
             }
 
             isSequenceInProgress = false
         }
     }
 
-    private func checkEndingCondition() -> String {
+    private func resolveEndingId() -> String {
         guard let story = currentNode?.story else { return "" }
 
         for condition in story.endingConditions {
@@ -224,14 +239,14 @@ class StoryViewModel: ObservableObject {
     }
 
     @MainActor
-    private func goToEndingNode(toId: String) async {
+    private func loadEndingNode(toId: String) async {
         isLoading = true
         do {
             if let storyId = content.story?.id,
                let story = try contentRepository?.fetchStory(by: storyId),
                let endingNode = story.nodes.first(where: { $0.id == toId })
             {
-                stepHistory.append(StoryStepData(
+                recordedSteps.append(StoryStepData(
                     nodeId: endingNode.id,
                     type: endingNode.type,
                     nodeText: endingNode.text,
@@ -243,7 +258,7 @@ class StoryViewModel: ObservableObject {
                 if let endingIndex = endingNode.endingIndex {
                     try historyRepository?.saveStoryHistory(
                         content: content,
-                        steps: stepHistory,
+                        steps: recordedSteps,
                         endingIndex: endingIndex
                     )
                 }
@@ -262,6 +277,68 @@ class StoryViewModel: ObservableObject {
         }
         isLoading = false
     }
+
+    // MARK: - Decision
+
+    func speakFirstDecision(node: StoryNode) {
+        decisionTask?.cancel()
+        decisionTask = Task { [weak self] in
+            guard let self else { return }
+
+            connectManager.sendStageDecisionWithFirstTTS(decisionIndex)
+            if !node.text.isEmpty {
+                await ttsManager.speakSequentially(node.text)
+            }
+            await ttsManager.speakSequentially("A")
+            await ttsManager.speakSequentially(node.choiceA?.text ?? "")
+            await ttsManager.speakSequentially("B")
+            await ttsManager.speakSequentially(node.choiceB?.text ?? "")
+
+            connectManager.sendStageDecisionWithFirstTimer(decisionIndex)
+        }
+    }
+
+    func speakSecondDecision(node: StoryNode) {
+        decisionTask?.cancel()
+        isSecondDecisionPlayed = true
+
+        let texts = [
+            "선택지가 다시 한번 재생됩니다",
+            "A. \(node.choiceA?.text ?? "")",
+            "B. \(node.choiceB?.text ?? "")",
+        ]
+
+        decisionTask = Task { [weak self] in
+            guard let self else { return }
+
+            isSecondDecisionPlayed = true
+            connectManager.sendStageDecisionWithSecTTS(decisionIndex)
+            for text in texts {
+                await ttsManager.speakSequentially(text)
+            }
+            connectManager.sendStageDecisionWithSecTimer(decisionIndex)
+        }
+    }
+
+    func handleTimeout(_ newValue: Bool?) {
+        let isTimeout = newValue == true
+        let noSelection = connectManager.selectedOption == nil
+        guard isTimeout, noSelection,
+              let node = currentNode, node.type == .decision
+        else { return }
+
+        if connectManager.isFirstRequest == true {
+            speakSecondDecision(node: node)
+            connectManager.isFirstRequest = false
+        } else {
+            if let toId = node.choiceA?.toId {
+                selectChoice(toId: toId)
+            }
+        }
+        connectManager.isTimeout = false
+    }
+
+    // MARK: - TTS
 
     func toggleSpeaking() {
         if isTogglingTTS {
@@ -282,6 +359,8 @@ class StoryViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Watch
+
     func handleWatchChoice(option: StoryChoiceOption) {
         guard let currentNode else { return }
         connectManager.sendChoiceInterrupt()
@@ -297,63 +376,5 @@ class StoryViewModel: ObservableObject {
                 selectChoice(toId: toId)
             }
         }
-    }
-
-    func firstDecision(node: StoryNode) {
-        decisionTask?.cancel()
-        decisionTask = Task { [weak self] in
-            guard let self else { return }
-
-            connectManager.sendStageDecisionWithFirstTTS(decisionIndex)
-            if !node.text.isEmpty {
-                await ttsManager.speakSequentially(node.text)
-            }
-            await ttsManager.speakSequentially("A")
-            await ttsManager.speakSequentially(node.choiceA?.text ?? "")
-            await ttsManager.speakSequentially("B")
-            await ttsManager.speakSequentially(node.choiceB?.text ?? "")
-
-            connectManager.sendStageDecisionWithFirstTimer(decisionIndex)
-        }
-    }
-
-    func playSecDecisionTTS(node: StoryNode) {
-        decisionTask?.cancel()
-        secPlayed = true
-
-        let texts = [
-            "선택지가 다시 한번 재생됩니다",
-            "A. \(node.choiceA?.text ?? "")",
-            "B. \(node.choiceB?.text ?? "")",
-        ]
-
-        decisionTask = Task { [weak self] in
-            guard let self else { return }
-
-            secPlayed = true
-            connectManager.sendStageDecisionWithSecTTS(decisionIndex)
-            for text in texts {
-                await ttsManager.speakSequentially(text)
-            }
-            connectManager.sendStageDecisionWithSecTimer(decisionIndex)
-        }
-    }
-
-    func handleTimeout(_ newValue: Bool?) {
-        let isTimeout = newValue == true
-        let noSelection = connectManager.selectedOption == nil
-        guard isTimeout, noSelection,
-              let node = currentNode, node.type == .decision
-        else { return }
-
-        if connectManager.isFirstRequest == true {
-            playSecDecisionTTS(node: node)
-            connectManager.isFirstRequest = false
-        } else {
-            if let toId = node.choiceA?.toId {
-                selectChoice(toId: toId)
-            }
-        }
-        connectManager.isTimeout = false
     }
 }

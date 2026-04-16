@@ -10,21 +10,34 @@ import Foundation
 import SwiftData
 
 class TournamentViewModel: ObservableObject {
+
+    // MARK: - Properties
+
+    // 외부 의존성
     let connectManager = IosConnectManager.shared
+    var ttsManager = TTSManager()
 
+    // Repository
+    private var contentRepository: ContentRepositoryProtocol?
+    private var historyRepository: PlayHistoryRepositoryProtocol?
+
+    // Combine
     private var cancellable = Set<AnyCancellable>()
-    private var context: ModelContext?
+    private var decisionTask: Task<Void, Never>?
+    private var selectionTask: Task<Void, Never>?
 
-    @Published var matchHistory: [TournamentStepData] = []
-    @Published var isTTSPlaying = false
-    @Published var title: String
-    @Published var currentCandidates: (Candidate, Candidate)? {
-        didSet {
-            connectManager.selectedOption = nil
-            connectManager.isTimeout = false
-            connectManager.isFirstRequest = true
-        }
-    }
+    // 콘텐츠 정보
+    private let tournamentId: UUID
+    private var tournament: Tournament?
+    let title: String
+
+    // 토너먼트 진행 상태
+    private var rounds: [[Candidate]] = []
+    private var roundIndex = 0
+    private var matchIndex = 0
+    private var roundWinners: [Candidate] = []
+
+    // MARK: - Published
 
     @Published var isFinished = false {
         didSet {
@@ -33,43 +46,40 @@ class TournamentViewModel: ObservableObject {
         }
     }
     @Published var winner: Candidate?
+    @Published var currentCandidates: (Candidate, Candidate)? {
+        didSet {
+            connectManager.selectedOption = nil
+            connectManager.isTimeout = false
+            connectManager.isFirstRequest = true
+        }
+    }
+    @Published var matchHistory: [TournamentStepData] = []
+    @Published var selectedOption: StoryChoiceOption? = nil
+    @Published var decisionIndex = 0
+    @Published var isTTSPlaying = false
 
-    private var contentRepository: ContentRepositoryProtocol?
-    private var historyRepository: PlayHistoryRepositoryProtocol?
-    private let tournamentId: UUID
-    private var tournament: Tournament?
-    private var nextRoundCandidates: [Candidate] = []
-    private var rounds: [[Candidate]] = []
-    private var currentRoundIndex = 0 // 지금 몇 라운드인지 ex. 8강, 4강, 결승
-    private var currentMatchIndex = 0 // 지금 라운드에서 몇번째 매치인지
-    private var selectionTask: Task<Void, Never>?
-
+    // Computed
     var currentRoundDescription: String {
-        guard rounds.indices.contains(currentRoundIndex) else { return "" }
-        let count = rounds[currentRoundIndex].count
+        guard rounds.indices.contains(roundIndex) else { return "" }
+        let count = rounds[roundIndex].count
         let roundText: String = (count == 2) ? "결승" : "\(count)강"
-        let matchNumber = currentMatchIndex + 1
+        let matchNumber = matchIndex + 1
         let totalMatches = count / 2
         return "\(roundText)\n\(totalMatches)개의 경기 중 \(matchNumber)번째 경기"
     }
 
-    @Published var selectedOption: StoryChoiceOption? = nil
-    @Published var decisionIndex = 0
-    @Published var decisionTask: Task<Void, Never>? = nil
+    // MARK: - Init
 
-    var ttsManager = TTSManager()
+    init(content: ContentMeta) {
+        self.title = content.title
+        self.tournamentId = content.tournament?.id ?? UUID()
+        self.tournament = content.tournament
 
-    init(
-        content: ContentMeta,
-    ) {
         guard let tournament = content.tournament else {
             Log.fault("TournamentViewModel 초기화 실패 — content.tournament가 nil")
-            fatalError("[FATAL] TournamentViewModel 초기화 실패 — content.tournament가 nil")
+            return
         }
-        self.tournament = tournament
-        tournamentId = tournament.id
-        title = content.title
-
+        
         connectManager.$selectedOption
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newValue in
@@ -84,7 +94,7 @@ class TournamentViewModel: ObservableObject {
 
                 selectedOption = option
                 let selected = option == .a ? a : b
-                handleSelection(selected)
+                processSelection(selected)
             }
             .store(in: &cancellable)
 
@@ -96,17 +106,21 @@ class TournamentViewModel: ObservableObject {
             .store(in: &cancellable)
     }
 
+    // MARK: Setup
+
+    func configure(context: ModelContext) {
+        contentRepository = ContentRepository(context: context)
+        historyRepository = PlayHistoryRepository(context: context)
+    }
+
+    // MARK: Lifecycle
+
     deinit {
         decisionTask?.cancel()
         selectionTask?.cancel()
         cancellable.removeAll()
         ttsManager.stop()
         Log.info("TournamentViewModel deinit")
-    }
-
-    func configure(context: ModelContext) {
-        contentRepository = ContentRepository(context: context)
-        historyRepository = PlayHistoryRepository(context: context)
     }
 
     func cleanup() {
@@ -116,6 +130,8 @@ class TournamentViewModel: ObservableObject {
         selectionTask = nil
         ttsManager.stop()
     }
+
+    // MARK: - Tournament Flow
 
     @MainActor
     func loadTournament() {
@@ -130,8 +146,8 @@ class TournamentViewModel: ObservableObject {
             rounds = [shuffled]
             isFinished = false
             winner = nil
-            currentRoundIndex = 0
-            currentMatchIndex = 0
+            roundIndex = 0
+            matchIndex = 0
             matchHistory = []
             prepareNextMatch()
         } catch {
@@ -141,28 +157,27 @@ class TournamentViewModel: ObservableObject {
 
     @MainActor
     func prepareNextMatch() {
-        let currentRound = rounds[currentRoundIndex]
-        guard currentMatchIndex * 2 + 1 < currentRound.count else {
+        let currentRound = rounds[roundIndex]
+        guard matchIndex * 2 + 1 < currentRound.count else {
             // 현재 라운드 끝났으면
-            if nextRoundCandidates.count == 1 {
-                winner = nextRoundCandidates.first
+            if roundWinners.count == 1 {
+                winner = roundWinners.first
                 isFinished = true
                 currentCandidates = nil
-                if let context { finishTournamentAndSave() }
-                Task { await handleTournamentEndingTTS() }
+                Task { await speakTournamentEnding() }
             } else {
                 // 다음 라운드 준비
-                rounds.append(nextRoundCandidates)
-                currentRoundIndex += 1
-                currentMatchIndex = 0
-                nextRoundCandidates = []
+                rounds.append(roundWinners)
+                roundIndex += 1
+                matchIndex = 0
+                roundWinners = []
                 prepareNextMatch()
             }
             return
         }
 
-        let a = currentRound[currentMatchIndex * 2]
-        let b = currentRound[currentMatchIndex * 2 + 1]
+        let a = currentRound[matchIndex * 2]
+        let b = currentRound[matchIndex * 2 + 1]
         currentCandidates = (a, b)
     }
 
@@ -171,16 +186,16 @@ class TournamentViewModel: ObservableObject {
         guard let (a, b) = currentCandidates else { return }
 
         let step = TournamentStepData(
-            round: rounds[currentRoundIndex].count,
-            matchIndex: currentMatchIndex,
+            round: rounds[roundIndex].count,
+            matchIndex: matchIndex,
             candidateAText: a.name,
             candidateBText: b.name,
             selectedText: selected.name,
             timestamp: Date()
         )
         matchHistory.append(step)
-        nextRoundCandidates.append(selected)
-        currentMatchIndex += 1
+        roundWinners.append(selected)
+        matchIndex += 1
         prepareNextMatch()
         selectedOption = nil
     }
@@ -189,20 +204,9 @@ class TournamentViewModel: ObservableObject {
         round
     }
 
-    func finishTournamentAndSave() {
-        guard let winner = winner, let tournament = tournament else { return }
-        do {
-            try historyRepository?.saveTournamentHistory(
-                tournament: tournament,
-                winner: winner,
-                matchHistory: matchHistory
-            )
-        } catch {
-            Log.error("토너먼트 히스토리 저장 실패: \(error)")
-        }
-    }
+    // MARK: - Selection
 
-    func handleSelection(_ candidate: Candidate) {
+    func processSelection(_ candidate: Candidate) {
         selectionTask?.cancel()
 
         selectionTask = Task { [weak self] in
@@ -227,12 +231,32 @@ class TournamentViewModel: ObservableObject {
             }
 
             guard !Task.isCancelled else { return }
-            await speakCurrentMatch()
+            await speakMatchIntro()
         }
     }
 
+    func handleTimeout(_ newValue: Bool?) {
+        let isTimeout = newValue == true
+        let sameIndex = connectManager.decisionIndex == decisionIndex
+        let noSelection = selectedOption == nil
+
+        guard isTimeout, sameIndex, noSelection else { return }
+
+        if connectManager.isFirstRequest {
+            speakSecondDecision()
+        } else {
+            if let (aCandidate, _) = currentCandidates {
+                selectedOption = .a
+                processSelection(aCandidate)
+            }
+        }
+        connectManager.isTimeout = false
+    }
+
+    // MARK: - TTS
+
     @MainActor
-    func speakCurrentMatch() {
+    func speakMatchIntro() {
         guard let (a, b) = currentCandidates else { return }
 
         decisionTask?.cancel()
@@ -255,7 +279,7 @@ class TournamentViewModel: ObservableObject {
         }
     }
 
-    func playSecondTTS() {
+    func speakSecondDecision() {
         guard let (a, b) = currentCandidates else { return }
         decisionTask?.cancel()
 
@@ -282,26 +306,8 @@ class TournamentViewModel: ObservableObject {
         await ttsManager.speakSequentially("\(candidate.name) 선택")
     }
 
-    func handleTimeout(_ newValue: Bool?) {
-        let isTimeout = newValue == true
-        let sameIndex = connectManager.decisionIndex == decisionIndex
-        let noSelection = selectedOption == nil
-
-        guard isTimeout, sameIndex, noSelection else { return }
-
-        if connectManager.isFirstRequest {
-            playSecondTTS()
-        } else {
-            if let (aCandidate, _) = currentCandidates {
-                selectedOption = .a
-                handleSelection(aCandidate)
-            }
-        }
-        connectManager.isTimeout = false
-    }
-
     @MainActor
-    func handleTournamentEndingTTS() async {
+    func speakTournamentEnding() async {
         connectManager.sendStageEndingTTS()
 
         guard let winner else { return }
@@ -312,5 +318,20 @@ class TournamentViewModel: ObservableObject {
         await ttsManager.speakSequentially("최종 우승자는 \(winner.name)입니다")
         connectManager.sendStageEndingTimer()
         isTTSPlaying = false
+    }
+
+    // MARK: - History
+
+    func finishTournamentAndSave() {
+        guard let winner = winner, let tournament = tournament else { return }
+        do {
+            try historyRepository?.saveTournamentHistory(
+                tournament: tournament,
+                winner: winner,
+                matchHistory: matchHistory
+            )
+        } catch {
+            Log.error("토너먼트 히스토리 저장 실패: \(error)")
+        }
     }
 }
