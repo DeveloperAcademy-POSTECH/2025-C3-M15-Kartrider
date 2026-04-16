@@ -29,29 +29,22 @@ final class TTSManager: NSObject, @unchecked Sendable, ObservableObject {
         currentContinuation = nil
     }
 
-    // TODO: 전체적인 개선이 필요해 보임
     func speakSequentially(_ text: String) async {
-        print("[INFO] speakSequentially 호출")
-
         guard !Task.isCancelled else { return }
 
         while await self.state == .paused {
             guard !Task.isCancelled else {
-                print("[DEBUG] [speakSequentially] 일시정지 상태에서 중단")
                 return
             }
-            print("[DEBUG] [speakSequentially] 일시정지 상태, 대기 중...")
             try? await Task.sleep(for: .milliseconds(100))
         }
 
         let currentState = await self.state
         guard currentState == .inactive else {
-            print("[WARN] 현재 state=\(currentState), speakSequentially는 무시됨")
             return
         }
 
         guard !Task.isCancelled else {
-            print("[DEBUG] 중단")
             return
         }
         
@@ -79,10 +72,7 @@ final class TTSManager: NSObject, @unchecked Sendable, ObservableObject {
     }
 
     func pause() {
-        print("[DEBUG] pause 호출")
-
         guard synthesizer.isSpeaking else {
-            print("[WARN] pause 호출 시 재생 중이 아님")
             return
         }
 
@@ -90,19 +80,14 @@ final class TTSManager: NSObject, @unchecked Sendable, ObservableObject {
     }
 
     func resume() {
-        print("[DEBUG] resume 호출")
-
         guard synthesizer.isPaused else {
-            print("[WARN] resume 호출 시 일시정지 상태가 아님")
             return
         }
 
         let result = synthesizer.continueSpeaking()
-        print("[DEBUG] continueSpeaking 결과: \(result)")
     }
 
     func stop() {
-        print("[DEBUG] stop 호출")
         synthesizer.stopSpeaking(at: .immediate)
 
         currentContinuation?.resume()
@@ -115,7 +100,6 @@ final class TTSManager: NSObject, @unchecked Sendable, ObservableObject {
     }
 
     func toggleSpeaking() {
-        print("[INFO] toggleSpeaking 호출")
         Task { @MainActor in
             switch self.state {
             case .playing:
@@ -123,17 +107,12 @@ final class TTSManager: NSObject, @unchecked Sendable, ObservableObject {
             case .paused:
                 self.resume()
             case .inactive:
-                // idle인데 마지막 텍스트가 있다면 다시 시작
                 if let last = self.lastUtteranceText {
-                    print("[INFO] toggleSpeaking - idle 상태에서 마지막 텍스트 재생 시작")
                     Task {
                         await self.speakSequentially(last)
                     }
-                } else {
-                    print("[WARN] toggleSpeaking - idle 상태이지만 마지막 텍스트 없음")
                 }
-            case .finished:
-                print("[INFO] toggleSpeaking - finished 상태")
+            case .finished: break
             }
         }
     }
@@ -144,7 +123,6 @@ extension TTSManager: AVSpeechSynthesizerDelegate {
         Task { @MainActor in
             self.state = .playing
             self.didSpeakingStateChanged?(true)
-            print("[DEBUG] didStart")
         }
     }
 
@@ -152,7 +130,6 @@ extension TTSManager: AVSpeechSynthesizerDelegate {
         Task { @MainActor in
             self.state = .paused
             self.didSpeakingStateChanged?(false)
-            print("[DEBUG] didPause")
         }
     }
 
@@ -160,7 +137,6 @@ extension TTSManager: AVSpeechSynthesizerDelegate {
         Task { @MainActor in
             self.state = .playing
             self.didSpeakingStateChanged?(true)
-            print("[DEBUG] didContinue")
         }
     }
 
@@ -168,7 +144,6 @@ extension TTSManager: AVSpeechSynthesizerDelegate {
         Task { @MainActor in
             self.state = .inactive
             self.didSpeakingStateChanged?(false)
-            print("[DEBUG] didFinish")
         }
 
         currentContinuation?.resume()
@@ -179,7 +154,6 @@ extension TTSManager: AVSpeechSynthesizerDelegate {
         Task { @MainActor in
             self.state = .inactive
             self.didSpeakingStateChanged?(false)
-            print("[DEBUG] didCancel")
         }
 
         currentContinuation?.resume()

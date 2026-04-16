@@ -45,7 +45,6 @@ class WatchOutroViewModel: ObservableObject {
                 WKInterfaceDevice.current().play(.start)
             } else {
                 self.timer?.invalidate()
-                print("[ENDING] Time Out")
             }
         }
     }

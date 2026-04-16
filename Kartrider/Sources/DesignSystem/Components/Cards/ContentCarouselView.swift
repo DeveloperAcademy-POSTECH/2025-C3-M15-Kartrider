@@ -91,6 +91,6 @@ struct ContentCarouselView: View {
     ]
     
     return ContentCarouselView(contents: dummyContents, initialIndex: 0) { selected in
-        print("선택된 콘텐츠: \(selected.title)")
+        Log.debug("선택된 콘텐츠: \(selected.title)")
     }
 }

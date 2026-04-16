@@ -28,10 +28,8 @@ class ExpositionViewModel: ObservableObject {
         connectManager.isTTSPlaying = isTTSPlaying
 
         if isTTSPlaying {
-            print("[WATCH] 재생")
             connectManager.sendStageExpositionWithResume()
         } else {
-            print("[WATCH] 일시정지")
             connectManager.sendStageExpositionWithPause()
         }
     }

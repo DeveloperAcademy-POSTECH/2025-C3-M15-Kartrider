@@ -55,7 +55,6 @@ struct StoryView: View {
                         ) {
                             storyViewModel.toggleSpeaking()
                         }
-                        // TODO: ViewModel로 분리
                         .disabled(
                             storyViewModel.isTransitioningTTS
                                 || storyViewModel.isTogglingTTS)

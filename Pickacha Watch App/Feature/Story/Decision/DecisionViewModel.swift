@@ -46,7 +46,6 @@ class DecisionViewModel: ObservableObject {
                     } else {
                         self.isTimerRunning = false
                     }
-                    print("[DECISION] isTimerRunning: \(self.isTimerRunning)")
                 } else {
 
                     self.isTimerRunning = false
@@ -117,7 +116,6 @@ class DecisionViewModel: ObservableObject {
         }
 
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            print("[TIMER] \(self.time)")
             if self.time > 0 {
                 self.time -= 1
                 self.progress = CGFloat(self.time) / 10.0
@@ -125,7 +123,6 @@ class DecisionViewModel: ObservableObject {
             } else {
                 if !self.isTimeOut {
                     self.timeOut()
-                    print("[DECISION] Time Out")
 
                     self.connectManager.sendTimeoutToIos(
                         self.decisionIndex, isFirstRequest: self.isFirstRequest)
@@ -137,7 +134,6 @@ class DecisionViewModel: ObservableObject {
     func makeChoice() {
 
         guard motionManager.isDeviceMotionAvailable else {
-            print("unavailable")
             return
         }
 
@@ -149,9 +145,6 @@ class DecisionViewModel: ObservableObject {
 
         motionManager.startDeviceMotionUpdates(to: .main) { data, error in
             guard let data = data, error == nil else {
-                print(
-                    "Motion data error: \(error?.localizedDescription ?? "Unknown")"
-                )
                 return
             }
 
@@ -164,7 +157,6 @@ class DecisionViewModel: ObservableObject {
             if !self.isSetMiddle {
                 self.middle = roll
                 self.isSetMiddle = true
-                print("[MOTION] middle set: \(roll)")
 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     self.startTimer()
@@ -182,7 +174,6 @@ class DecisionViewModel: ObservableObject {
         if value > 0.6 {
             self.choice = "B"
             choiceDone()
-            print("[CHOICE] B")
             if self.isFirstRequest {
                 self.connectManager.sendFirstChoiceToIos(
                     self.decisionIndex, "B")
@@ -193,7 +184,6 @@ class DecisionViewModel: ObservableObject {
         } else if value < -0.6 {
             self.choice = "A"
             choiceDone()
-            print("[CHOICE] A")
             if self.isFirstRequest {
                 self.connectManager.sendFirstChoiceToIos(
                     self.decisionIndex, "A")
@@ -205,7 +195,6 @@ class DecisionViewModel: ObservableObject {
     }
 
     func interruptByPhone() {
-        print("[WATCH] ios에서 보낸 interrupt")
         stopTimer()
         motionManager.stopDeviceMotionUpdates()
     }

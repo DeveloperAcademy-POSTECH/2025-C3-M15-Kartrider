@@ -45,6 +45,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		803104812F90D4A4004CA14C /* Exceptions for "Kartrider" folder in "Pickacha Watch App" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Sources/Utility/Log.swift,
+			);
+			target = 87D65E772DE6B6BB00F15CA1 /* Pickacha Watch App */;
+		};
 		8704608B2E1B913B00B082A2 /* Exceptions for "Kartrider" folder in "Kartrider" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -59,6 +66,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				8704608B2E1B913B00B082A2 /* Exceptions for "Kartrider" folder in "Kartrider" target */,
+				803104812F90D4A4004CA14C /* Exceptions for "Kartrider" folder in "Pickacha Watch App" target */,
 			);
 			path = Kartrider;
 			sourceTree = "<group>";

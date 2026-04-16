@@ -30,7 +30,7 @@ class SeedManager: ObservableObject {
         
         let config = ModelConfiguration(
             schema: schema,
-            isStoredInMemoryOnly: true // TODO: - false로 변경
+            isStoredInMemoryOnly: true
         )
         
         do {
@@ -68,7 +68,7 @@ class SeedManager: ObservableObject {
 
     private func performSeeding(context: ModelContext) async {
         await Seeder.seedAll(context: context)
-        
-        print("[DEBUG] 시드 완료 → isReady = true")
+
+        Log.debug("시드 완료 → isReady = true")
     }
 }

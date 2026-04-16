@@ -21,7 +21,7 @@ class WatchConnectManager: NSObject, WCSessionDelegate, ObservableObject {
             self.session.delegate = self
             self.session.activate()
         } else {
-            print("[ERROR] WCSession not supported")
+            Log.error("WCSession not supported")
         }
     }
 
@@ -49,23 +49,16 @@ class WatchConnectManager: NSObject, WCSessionDelegate, ObservableObject {
         activationDidCompleteWith activationState: WCSessionActivationState,
         error: Error?
     ) {
-        print("Session activated: \(activationState.rawValue)")
+        Log.debug("Session activated: \(activationState.rawValue)")
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any])
     {
         DispatchQueue.main.async {
-            print("[DEBUG] Received message: \(message)")
-            guard
-                let currentStage = message[messageKey.currentStage.rawValue]
-                    as? String
-            else {
-                print("[ERROR] stage is nil")
-                return
-            }
-            print(
-                "[DEBUG] stage raw value: '\(currentStage)' (type: \(type(of: currentStage)))"
-            )
+            Log.debug("Received message: \(message)")
+            guard let currentStage = message[messageKey.currentStage.rawValue] as? String else { return }
+            
+            Log.debug("stage raw value: '\(currentStage)' (type: \(type(of: currentStage)))")
 
             if let hasStartedContent = message[
                 messageKey.hasStartedContent.rawValue] as? Bool
@@ -98,28 +91,20 @@ class WatchConnectManager: NSObject, WCSessionDelegate, ObservableObject {
                 self.isInterrupted = isInterrupted
             }
 
-            print("[STAGE] stage: \(currentStage)")
-
             self.currentStage = currentStage
-            print("[DEBUG] stage did change to '\(self.currentStage)'")
 
             switch currentStage {
             case Stage.idle.rawValue:
-                print("[IDLE] startContent: \(self.hasStartedContent)")
                 self.message = [
                     "currentStage": "idle",
                     "hasStartedContent": self.hasStartedContent,
                 ]
             case Stage.exposition.rawValue:
-                print("[EXPOSITION] isPlayTTS: \(self.isTTSPlaying)")
                 self.message = [
                     "currentStage": "exposition",
                     "isTTSPlaying": self.isTTSPlaying,
                 ]
             case Stage.decision.rawValue:
-                print(
-                    "[DECISION] isTimerRunning: \(self.isTimerRunning), decisionIndex: \(self.decisionIndex), isFirstRequest: \(self.isFirstRequest)"
-                )
                 self.message = [
                     "currentStage": "decision",
                     "isTimerRunning": self.isTimerRunning,
@@ -127,13 +112,12 @@ class WatchConnectManager: NSObject, WCSessionDelegate, ObservableObject {
                     "isFirstRequest": self.isFirstRequest,
                 ]
             case Stage.ending.rawValue:
-                print("[ENDING] isTimerRunning: \(self.isTimerRunning)")
                 self.message = [
                     "currentStage": "ending",
                     "isTimerRunning": self.isTimerRunning,
                 ]
             default:
-                print("[ERROR] wrong stage: \(currentStage)")
+                Log.error("wrong stage: \(currentStage)")
             }
         }
     }
