@@ -79,7 +79,14 @@ class TournamentViewModel: ObservableObject {
             Log.fault("TournamentViewModel 초기화 실패 — content.tournament가 nil")
             return
         }
-        
+
+        ttsManager.$state
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                self?.isTTSPlaying = (state == .playing)
+            }
+            .store(in: &cancellable)
+
         connectManager.$selectedOption
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newValue in
@@ -200,10 +207,6 @@ class TournamentViewModel: ObservableObject {
         selectedOption = nil
     }
 
-    private func makeNextRound(from round: [Candidate]) -> [Candidate] {
-        round
-    }
-
     // MARK: - Selection
 
     func processSelection(_ candidate: Candidate) {
@@ -267,15 +270,11 @@ class TournamentViewModel: ObservableObject {
         decisionTask = Task { [weak self] in
             guard let self else { return }
 
-            connectManager.sendStageDecisionWithFirstTTS(
-                decisionIndex)
-            await MainActor.run { self.isTTSPlaying = true }
+            connectManager.sendStageDecision(decisionIndex: decisionIndex, isTimerRunning: false, isFirstRequest: true)
             await ttsManager.speakSequentially(currentRoundDescription)
             await ttsManager.speakSequentially("A. \(a.name)")
             await ttsManager.speakSequentially("B. \(b.name)")
-            await MainActor.run { self.isTTSPlaying = false }
-            connectManager.sendStageDecisionWithFirstTimer(
-                decisionIndex)
+            connectManager.sendStageDecision(decisionIndex: decisionIndex, isTimerRunning: true, isFirstRequest: true)
         }
     }
 
@@ -292,13 +291,11 @@ class TournamentViewModel: ObservableObject {
         decisionTask = Task { [weak self] in
             guard let self else { return }
 
-            connectManager.sendStageDecisionWithSecTTS(decisionIndex)
-            await MainActor.run { self.isTTSPlaying = true }
+            connectManager.sendStageDecision(decisionIndex: decisionIndex, isTimerRunning: false, isFirstRequest: false)
             for text in texts {
                 await ttsManager.speakSequentially(text)
             }
-            await MainActor.run { self.isTTSPlaying = false }
-            connectManager.sendStageDecisionWithSecTimer(decisionIndex)
+            connectManager.sendStageDecision(decisionIndex: decisionIndex, isTimerRunning: true, isFirstRequest: false)
         }
     }
 
@@ -308,16 +305,23 @@ class TournamentViewModel: ObservableObject {
 
     @MainActor
     func speakTournamentEnding() async {
-        connectManager.sendStageEndingTTS()
+        connectManager.sendStageEnding(isTimerRunning: false)
 
         guard let winner else { return }
 
-        isTTSPlaying = true
         ttsManager.stop()
         try? await Task.sleep(nanoseconds: 300_000_000)
         await ttsManager.speakSequentially("최종 우승자는 \(winner.name)입니다")
-        connectManager.sendStageEndingTimer()
-        isTTSPlaying = false
+        connectManager.sendStageEnding(isTimerRunning: true)
+    }
+
+    func toggleSpeaking() {
+        if isTTSPlaying {
+            connectManager.sendStageExposition(isTTSPlaying: false)
+        } else {
+            connectManager.sendStageExposition(isTTSPlaying: true)
+        }
+        ttsManager.toggleSpeaking()
     }
 
     // MARK: - History

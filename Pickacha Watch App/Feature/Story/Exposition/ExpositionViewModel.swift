@@ -27,10 +27,6 @@ class ExpositionViewModel: ObservableObject {
         isTTSPlaying.toggle()
         connectManager.isTTSPlaying = isTTSPlaying
 
-        if isTTSPlaying {
-            connectManager.sendStageExpositionWithResume()
-        } else {
-            connectManager.sendStageExpositionWithPause()
-        }
+        connectManager.sendStageExposition(isTTSPlaying: isTTSPlaying)
     }
 }

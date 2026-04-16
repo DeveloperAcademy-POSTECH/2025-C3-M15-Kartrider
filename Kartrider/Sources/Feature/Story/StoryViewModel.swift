@@ -52,12 +52,16 @@ class StoryViewModel: ObservableObject {
         self.content = content
         startNodeId = content.story?.startNodeId ?? ""
 
-        ttsManager.didSpeakingStateChanged = { [weak self] speaking in
-            DispatchQueue.main.async {
-                self?.isTTSPlaying = speaking
-                self?.isTogglingTTS = false
+        ttsManager.$state
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                guard let self else { return }
+                isTTSPlaying = (state == .playing)
+                if state == .inactive || state == .paused {
+                    isTogglingTTS = false
+                }
             }
-        }
+            .store(in: &cancellable)
 
         connectManager.$isTTSPlaying
             .receive(on: DispatchQueue.main)
@@ -217,7 +221,7 @@ class StoryViewModel: ObservableObject {
                     selectedText: nil,
                     timestamp: Date()
                 ))
-                connectManager.sendStageExpositionWithResume()
+                connectManager.sendStageExposition(isTTSPlaying: true)
                 await ttsManager.speakSequentially(node.text)
                 goToNextNode(from: node)
             }
@@ -264,11 +268,11 @@ class StoryViewModel: ObservableObject {
                 }
 
                 currentNode = endingNode
-                connectManager.sendStageEndingTTS()
+                connectManager.sendStageEnding(isTimerRunning: false)
                 if !endingNode.text.isEmpty {
                     await ttsManager.speakSequentially(endingNode.text)
                 }
-                connectManager.sendStageEndingTimer()
+                connectManager.sendStageEnding(isTimerRunning: true)
             } else {
                 errorMessage = "해당 결말을 찾을 수 없습니다"
             }
@@ -285,7 +289,8 @@ class StoryViewModel: ObservableObject {
         decisionTask = Task { [weak self] in
             guard let self else { return }
 
-            connectManager.sendStageDecisionWithFirstTTS(decisionIndex)
+            connectManager.sendStageDecision(decisionIndex: decisionIndex, isTimerRunning: false, isFirstRequest: true)
+
             if !node.text.isEmpty {
                 await ttsManager.speakSequentially(node.text)
             }
@@ -294,7 +299,7 @@ class StoryViewModel: ObservableObject {
             await ttsManager.speakSequentially("B")
             await ttsManager.speakSequentially(node.choiceB?.text ?? "")
 
-            connectManager.sendStageDecisionWithFirstTimer(decisionIndex)
+            connectManager.sendStageDecision(decisionIndex: decisionIndex, isTimerRunning: true, isFirstRequest: true)
         }
     }
 
@@ -312,11 +317,11 @@ class StoryViewModel: ObservableObject {
             guard let self else { return }
 
             isSecondDecisionPlayed = true
-            connectManager.sendStageDecisionWithSecTTS(decisionIndex)
+            connectManager.sendStageDecision(decisionIndex: decisionIndex, isTimerRunning: false, isFirstRequest: false)
             for text in texts {
                 await ttsManager.speakSequentially(text)
             }
-            connectManager.sendStageDecisionWithSecTimer(decisionIndex)
+            connectManager.sendStageDecision(decisionIndex: decisionIndex, isTimerRunning: true, isFirstRequest: false)
         }
     }
 
@@ -348,9 +353,9 @@ class StoryViewModel: ObservableObject {
         isTogglingTTS = true
 
         if isTTSPlaying {
-            connectManager.sendStageExpositionWithPause()
+            connectManager.sendStageExposition(isTTSPlaying: false)
         } else {
-            connectManager.sendStageExpositionWithResume()
+            connectManager.sendStageExposition(isTTSPlaying: true)
         }
 
         ttsManager.toggleSpeaking()

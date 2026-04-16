@@ -174,23 +174,11 @@ class DecisionViewModel: ObservableObject {
         if value > 0.6 {
             self.choice = "B"
             choiceDone()
-            if self.isFirstRequest {
-                self.connectManager.sendFirstChoiceToIos(
-                    self.decisionIndex, "B")
-            } else {
-                self.connectManager.sendSecChoiceToIos(
-                    self.decisionIndex, "B")
-            }
+            connectManager.sendChoiceToIos(decisionIndex, "B", decisionCount: isFirstRequest ? 1 : 2)
         } else if value < -0.6 {
             self.choice = "A"
             choiceDone()
-            if self.isFirstRequest {
-                self.connectManager.sendFirstChoiceToIos(
-                    self.decisionIndex, "A")
-            } else {
-                self.connectManager.sendSecChoiceToIos(
-                    self.decisionIndex, "A")
-            }
+            connectManager.sendChoiceToIos(decisionIndex, "A", decisionCount: isFirstRequest ? 1 : 2)
         }
     }
 

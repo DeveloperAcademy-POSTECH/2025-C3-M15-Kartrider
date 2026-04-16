@@ -12,7 +12,6 @@ final class TTSManager: NSObject, @unchecked Sendable, ObservableObject {
     private var currentContinuation: CheckedContinuation<Void, Never>?
 
     @MainActor @Published private(set) var state: TTSState = .inactive
-    var didSpeakingStateChanged: ((Bool) -> Void)?
 
     private var lastUtteranceText: String?
 
@@ -32,40 +31,26 @@ final class TTSManager: NSObject, @unchecked Sendable, ObservableObject {
     func speakSequentially(_ text: String) async {
         guard !Task.isCancelled else { return }
 
+        // paused면 resume될 때까지 대기
         while await self.state == .paused {
-            guard !Task.isCancelled else {
-                return
-            }
+            guard !Task.isCancelled else { return }
             try? await Task.sleep(for: .milliseconds(100))
         }
 
-        let currentState = await self.state
-        guard currentState == .inactive else {
-            return
-        }
+        guard !Task.isCancelled else { return }
+        guard await self.state == .inactive else { return }
 
-        guard !Task.isCancelled else {
-            return
-        }
-        
-        await MainActor.run {
-            self.state = .playing
-        }
-
+        await MainActor.run { self.state = .playing }
         lastUtteranceText = text
 
         await withCheckedContinuation { [weak self] continuation in
-            guard let self else {
-                continuation.resume()
-                return
-            }
-
+            guard let self else { continuation.resume(); return }
             self.currentContinuation = continuation
             self.speak(text)
         }
     }
 
-    func speak(_ text: String) {
+    private func speak(_ text: String) {
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: "ko-KR")
         synthesizer.speak(utterance)
@@ -89,13 +74,10 @@ final class TTSManager: NSObject, @unchecked Sendable, ObservableObject {
 
     func stop() {
         synthesizer.stopSpeaking(at: .immediate)
-
         currentContinuation?.resume()
         currentContinuation = nil
-
         Task { @MainActor in
             self.state = .inactive
-            self.didSpeakingStateChanged?(false)
         }
     }
 
@@ -112,7 +94,6 @@ final class TTSManager: NSObject, @unchecked Sendable, ObservableObject {
                         await self.speakSequentially(last)
                     }
                 }
-            case .finished: break
             }
         }
     }
@@ -122,28 +103,24 @@ extension TTSManager: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
         Task { @MainActor in
             self.state = .playing
-            self.didSpeakingStateChanged?(true)
         }
     }
 
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didPause utterance: AVSpeechUtterance) {
         Task { @MainActor in
             self.state = .paused
-            self.didSpeakingStateChanged?(false)
         }
     }
 
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didContinue utterance: AVSpeechUtterance) {
         Task { @MainActor in
             self.state = .playing
-            self.didSpeakingStateChanged?(true)
         }
     }
 
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         Task { @MainActor in
             self.state = .inactive
-            self.didSpeakingStateChanged?(false)
         }
 
         currentContinuation?.resume()
@@ -153,7 +130,6 @@ extension TTSManager: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
         Task { @MainActor in
             self.state = .inactive
-            self.didSpeakingStateChanged?(false)
         }
 
         currentContinuation?.resume()
