@@ -32,26 +32,8 @@ struct IntroView: View {
                 IntroDescriptionView(content: introViewModel.content)
 
                 OrangeButton(title: "이야기 시작하기") {
-
-                    introViewModel.sendStageIdle()
-
-                    switch introViewModel.content.type {
-                    case .story:
-                        if let startNodeId = introViewModel.content.story?
-                            .startNodeId
-                        {
-                            coordinator.push(
-                                Route.story(introViewModel.content))
-                        } else {
-                            Log.error("스토리가 존재하지 않음")
-                        }
-                    case .tournament:
-                        if let id = introViewModel.content.tournament?.id {
-                            coordinator.push(
-                                Route.tournament(introViewModel.content))
-                        } else {
-                            Log.error("토너먼트가 존재하지 않음")
-                        }
+                    if let route = introViewModel.startContentRoute() {
+                        coordinator.push(route)
                     }
                 }
                 .padding(.vertical, 20)

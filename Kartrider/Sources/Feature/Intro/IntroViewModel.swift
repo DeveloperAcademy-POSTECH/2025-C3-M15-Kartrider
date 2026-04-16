@@ -16,10 +16,27 @@ class IntroViewModel: ObservableObject {
 
     init(content: ContentMeta) {
         self.content = content
-        Log.debug("IntroViewModel 초기화 - 제목 : \(content.title), 타입 : \(content.type)")
     }
 
     func sendStageIdle() {
         connectManager.sendStageIdle()
+    }
+
+    func startContentRoute() -> Route? {
+        sendStageIdle()
+        switch content.type {
+        case .story:
+            guard content.story?.startNodeId != nil else {
+                Log.error("스토리 데이터 없음")
+                return nil
+            }
+            return .story(content)
+        case .tournament:
+            guard content.tournament?.id != nil else {
+                Log.error("토너먼트 데이터 없음")
+                return nil
+            }
+            return .tournament(content)
+        }
     }
 }
