@@ -92,14 +92,13 @@ class IosConnectManager: NSObject, WCSessionDelegate, ObservableObject {
         ]
 
         let session = WCSession.default
-        // TODO: Logger같은 것들?
-        print("[DEBUG] idle message 보내기: \(message)")
+        Log.debug("idle message 보내기: \(message)")
 
         if session.isReachable {
-            print("[DEBUG] 워치로 idle 메시지 전송")
+            Log.debug("워치로 idle 메시지 전송")
             session.sendMessage(message, replyHandler: nil)
         } else {
-            print("[INFO] 세션 도달 불가. 1초 뒤 재시도.")
+            Log.warning("세션 도달 불가. 1초 뒤 재시도.")
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                 self.sendStageIdle()
             }

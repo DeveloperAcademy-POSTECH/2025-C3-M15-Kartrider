@@ -15,16 +15,16 @@ struct Seeder {
         
         do {
             try JSONParser<StoryJSON>(fileName: Constants.JSONFileName.storyEmpty).insertData(into: context)
-            print("[INFO] Story 시드 완료")
+            Log.debug("Story 시드 완료")
         } catch {
-            print("[ERROR] Story 파싱 실패: \(error)")
+            Log.error("Story 파싱 실패: \(error)")
         }
         
         do {
             try JSONParser<TournamentJSON>(fileName: Constants.JSONFileName.tournamentData).insertData(into: context)
-            print("[INFO] Tournament 시드 완료")
+            Log.debug("Tournament 시드 완료")
         } catch {
-            print("[ERROR] Tournament 파싱 실패: \(error)")
+            Log.error("Tournament 파싱 실패: \(error)")
         }
     }
         
@@ -47,9 +47,9 @@ struct Seeder {
                 try context.delete(model: model)
             }
             try context.save()
-            print("[INFO] 모든 SwiftData 데이터 삭제 완료")
+            Log.debug("모든 SwiftData 데이터 삭제 완료")
         } catch {
-            print("[ERROR] 데이터 삭제 실패: \(error)")
+            Log.error("데이터 삭제 실패: \(error)")
         }
     }
     
@@ -58,9 +58,9 @@ struct Seeder {
             let storyCount = try context.fetch(FetchDescriptor<Story>()).count
             let tournamentCount = try context.fetch(FetchDescriptor<Tournament>()).count
             let candidateCount = try context.fetch(FetchDescriptor<Candidate>()).count
-            print("[INFO] Story: \(storyCount), Tournament: \(tournamentCount), Candidate: \(candidateCount)")
+            Log.debug("Story: \(storyCount), Tournament: \(tournamentCount), Candidate: \(candidateCount)")
         } catch {
-            print("[ERROR] 카운트 확인 실패: \(error)")
+            Log.error("카운트 확인 실패: \(error)")
         }
     }
 }

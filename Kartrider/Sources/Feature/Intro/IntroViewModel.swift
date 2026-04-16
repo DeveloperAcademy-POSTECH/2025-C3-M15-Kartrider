@@ -16,9 +16,7 @@ class IntroViewModel: ObservableObject {
 
     init(content: ContentMeta) {
         self.content = content
-        print(
-            "[DEBUG] IntroViewModel 초기화 - 제목 : \(content.title), 타입 : \(content.type)"
-        )
+        Log.debug("IntroViewModel 초기화 - 제목 : \(content.title), 타입 : \(content.type)")
     }
 
     func sendStageIdle() {

@@ -23,7 +23,7 @@ class HomeViewModel: ObservableObject {
         do {
             contents = try contentRepository.fetchAllContents(context: context)
         } catch {
-            print("[ERROR] 컨텐츠 로딩 실패 : \(error)")
+            Log.error("컨텐츠 로딩 실패 : \(error)")
         }
     }
     
