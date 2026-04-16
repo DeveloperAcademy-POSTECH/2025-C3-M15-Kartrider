@@ -9,26 +9,29 @@ import Foundation
 import SwiftData
 
 class ContentRepository: ContentRepositoryProtocol {
-    func fetchAllContents(context: ModelContext) throws -> [ContentMeta] {
-        let descriptor = FetchDescriptor<ContentMeta>()
-        return try context.fetch(descriptor)
+
+    private let context: ModelContext
+
+    init(context: ModelContext) {
+        self.context = context
+    }
+
+    func fetchAllContents() throws -> [ContentMeta] {
+        try context.fetch(FetchDescriptor<ContentMeta>())
     }
     
-    func fetchContent(by id: UUID, context: ModelContext) throws -> ContentMeta? {
+    func fetchContent(by id: UUID) throws -> ContentMeta? {
         let predicate = #Predicate<ContentMeta> { $0.id == id }
-        let descriptor = FetchDescriptor<ContentMeta>(predicate: predicate)
-        return try context.fetch(descriptor).first
+        return try context.fetch(FetchDescriptor<ContentMeta>(predicate: predicate)).first
     }
     
-    func fetchStory(by id: UUID, context: ModelContext) throws -> Story? {
+    func fetchStory(by id: UUID) throws -> Story? {
         let predicate = #Predicate<Story> { $0.id == id }
-        let descriptor = FetchDescriptor<Story>(predicate: predicate)
-        return try context.fetch(descriptor).first
+        return try context.fetch(FetchDescriptor<Story>(predicate: predicate)).first
     }
     
-    func fetchTournament(by id: UUID, context: ModelContext) throws -> Tournament? {
+    func fetchTournament(by id: UUID) throws -> Tournament? {
         let predicate = #Predicate<Tournament> { $0.id == id }
-        let descriptor = FetchDescriptor<Tournament>(predicate: predicate)
-        return try context.fetch(descriptor).first
+        return try context.fetch(FetchDescriptor<Tournament>(predicate: predicate)).first
     }
 }

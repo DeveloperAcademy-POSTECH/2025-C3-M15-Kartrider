@@ -59,8 +59,8 @@ struct TournamentView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .task {
-            tournamentViewModel.setContext(context)
-            tournamentViewModel.loadTournament(context: context)
+            tournamentViewModel.configure(context: context)
+            tournamentViewModel.loadTournament()
             tournamentViewModel.speakCurrentMatch()
         }
     }

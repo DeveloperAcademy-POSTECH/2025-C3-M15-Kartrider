@@ -16,7 +16,7 @@ class StoryViewModel: ObservableObject {
 
     let content: ContentMeta
     let startNodeId: String
-    private let contentRepository: ContentRepositoryProtocol
+    private var contentRepository: ContentRepositoryProtocol?
     private var lastToggleTime: Date = .distantPast
 
     @Published var isLoading: Bool = true
@@ -36,11 +36,11 @@ class StoryViewModel: ObservableObject {
 
     var ttsManager = TTSManager()
 
-    init(
-        repository: ContentRepositoryProtocol = ContentRepository(),
-        content: ContentMeta
-    ) {
-        contentRepository = repository
+    func configure(context: ModelContext) {
+        contentRepository = ContentRepository(context: context)
+    }
+
+    init(content: ContentMeta) {
         self.content = content
         startNodeId = content.story?.startNodeId ?? ""
 
@@ -101,18 +101,16 @@ class StoryViewModel: ObservableObject {
     }
 
     @MainActor
-    func loadInitialNode(context: ModelContext) async {
+    func loadInitialNode() async {
         isLoading = true
         errorMessage = nil
         do {
             if let storyId = content.story?.id,
-               let story = try contentRepository.fetchStory(
-                   by: storyId, context: context
-               ),
+               let story = try contentRepository?.fetchStory(by: storyId),
                let node = story.nodes.first(where: { $0.id == startNodeId })
             {
                 currentNode = node
-                await handleStoryNode(node, context: context)
+                await handleStoryNode(node)
             } else {
                 errorMessage = "해당 스토리를 찾을 수 없습니다"
             }
@@ -157,7 +155,7 @@ class StoryViewModel: ObservableObject {
     }
 
     @MainActor
-    func handleStoryNode(_ node: StoryNode, context: ModelContext) async {
+    func handleStoryNode(_ node: StoryNode) async {
         nodeHandlingTask?.cancel()
 
         nodeHandlingTask = Task { [weak self] in
@@ -175,7 +173,7 @@ class StoryViewModel: ObservableObject {
             } else if node.nextId == nil {
                 guard !Task.isCancelled else { return }
                 endingId = checkEndingCondition()
-                await goToEndingNode(toId: endingId, context: context)
+                await goToEndingNode(toId: endingId)
 
             } else if node.type == .exposition {
                 guard !Task.isCancelled else { return }
@@ -203,11 +201,11 @@ class StoryViewModel: ObservableObject {
     }
 
     @MainActor
-    private func goToEndingNode(toId: String, context: ModelContext) async {
+    private func goToEndingNode(toId: String) async {
         isLoading = true
         do {
             if let storyId = content.story?.id,
-               let story = try contentRepository.fetchStory(by: storyId, context: context),
+               let story = try contentRepository?.fetchStory(by: storyId),
                let endingNode = story.nodes.first(where: { $0.id == toId })
             {
                 currentNode = endingNode

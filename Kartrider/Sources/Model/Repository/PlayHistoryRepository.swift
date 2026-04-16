@@ -9,13 +9,14 @@ import Foundation
 import SwiftData
 
 class PlayHistoryRepository: PlayHistoryRepositoryProtocol {
-    
-    func saveTournamentHistory(
-        context: ModelContext,
-        tournament: Tournament,
-        winner: Candidate,
-        matchHistory: [TournamentStepData]
-    ) throws {
+
+    private let context: ModelContext
+
+    init(context: ModelContext) {
+        self.context = context
+    }
+
+    func saveTournamentHistory(tournament: Tournament, winner: Candidate, matchHistory: [TournamentStepData]) throws {
         let history = PlayHistory(content: tournament.meta)
         history.endedAt = Date()
         history.winningCandidateId = winner.id
