@@ -28,12 +28,10 @@ struct AppNavigationView: View {
                         TournamentView(content: content)
                     case .outro:
                         OutroView()
-                    case .contentLibrary:
-                        ContentLibraryView()
                     case .contentSummary:
                         ContentSummaryView()
-                    case .contentPlayback:
-                        ContentPlaybackView()
+                    case .contentPlayback(let history):
+                        ContentPlaybackView(history: history)
                     }
                 }
         }

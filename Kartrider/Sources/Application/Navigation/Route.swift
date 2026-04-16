@@ -13,7 +13,6 @@ enum Route: Hashable {
     case story(ContentMeta)
     case tournament(ContentMeta)
     case outro
-    case contentLibrary
     case contentSummary
-    case contentPlayback
+    case contentPlayback(PlayHistory)
 }
