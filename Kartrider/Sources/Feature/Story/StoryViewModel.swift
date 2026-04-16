@@ -10,13 +10,16 @@ import Foundation
 import SwiftData
 
 class StoryViewModel: ObservableObject {
+
     let connectManager = IosConnectManager.shared
+    private var contentRepository: ContentRepositoryProtocol?
+    private var historyRepository: PlayHistoryRepositoryProtocol?
 
     private var cancellable = Set<AnyCancellable>()
 
     let content: ContentMeta
     let startNodeId: String
-    private var contentRepository: ContentRepositoryProtocol?
+    private var stepHistory: [StoryStepData] = []
     private var lastToggleTime: Date = .distantPast
 
     @Published var isLoading: Bool = true
@@ -38,6 +41,7 @@ class StoryViewModel: ObservableObject {
 
     func configure(context: ModelContext) {
         contentRepository = ContentRepository(context: context)
+        historyRepository = PlayHistoryRepository(context: context)
     }
 
     init(content: ContentMeta) {
@@ -138,20 +142,34 @@ class StoryViewModel: ObservableObject {
         guard let currentNode,
               let story = currentNode.story,
               let nextNode = story.nodes.first(where: { $0.id == toId })
-        else {
-            errorMessage = "선택한 노드를 찾을 수 없습니다"
-            return
-        }
+        else { return }
+
+        let selectedChoice: StoryChoiceOption
+        var selectedText: String = ""
 
         if let choice = currentNode.choiceA, choice.toId == toId {
             selectedPath.append(.a)
+            selectedChoice = .a
+            selectedText = choice.text
         } else if let choice = currentNode.choiceB, choice.toId == toId {
             selectedPath.append(.b)
+            selectedChoice = .b
+            selectedText = choice.text
+        } else {
+            return
         }
-        Log.info("선택한 길: \(selectedPath)")
+
+        stepHistory.append(StoryStepData(
+            nodeId: currentNode.id,
+            type: currentNode.type,
+            nodeText: currentNode.text,
+            selectedChoice: selectedChoice,
+            selectedText: selectedText,
+            timestamp: Date()
+        ))
 
         self.currentNode = nextNode
-        decisionIndex += 1
+        self.decisionIndex += 1
     }
 
     @MainActor
@@ -176,12 +194,17 @@ class StoryViewModel: ObservableObject {
                 await goToEndingNode(toId: endingId)
 
             } else if node.type == .exposition {
-                guard !Task.isCancelled else { return }
+                stepHistory.append(StoryStepData(
+                    nodeId: node.id,
+                    type: node.type,
+                    nodeText: node.text,
+                    selectedChoice: nil,
+                    selectedText: nil,
+                    timestamp: Date()
+                ))
                 connectManager.sendStageExpositionWithResume()
                 await ttsManager.speakSequentially(node.text)
-
-                guard !Task.isCancelled else { return }
-                goToNextNode(from: node)
+                self.goToNextNode(from: node)
             }
 
             isSequenceInProgress = false
@@ -208,6 +231,23 @@ class StoryViewModel: ObservableObject {
                let story = try contentRepository?.fetchStory(by: storyId),
                let endingNode = story.nodes.first(where: { $0.id == toId })
             {
+                stepHistory.append(StoryStepData(
+                    nodeId: endingNode.id,
+                    type: endingNode.type,
+                    nodeText: endingNode.text,
+                    selectedChoice: nil,
+                    selectedText: nil,
+                    timestamp: Date()
+                ))
+
+                if let endingIndex = endingNode.endingIndex {
+                    try historyRepository?.saveStoryHistory(
+                        content: content,
+                        steps: stepHistory,
+                        endingIndex: endingIndex
+                    )
+                }
+
                 currentNode = endingNode
                 connectManager.sendStageEndingTTS()
                 if !endingNode.text.isEmpty {
