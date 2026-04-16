@@ -10,11 +10,12 @@ import WatchConnectivity
 
 class IosConnectManager: NSObject, WCSessionDelegate, ObservableObject {
 
+    // MARK: - Properties
+
     static let shared = IosConnectManager()
 
-    var session: WCSession
+    let session: WCSession
 
-    @Published var message: [String: Any] = [:]
     @Published var isTTSPlaying: Bool = true
     @Published var decisionIndex: Int = 0
     @Published var decisionCount: Int = 0
@@ -23,208 +24,104 @@ class IosConnectManager: NSObject, WCSessionDelegate, ObservableObject {
     @Published var isTimeout: Bool? = false
     @Published var isFirstRequest: Bool = true
 
-    private enum messageKey: String {
-        case isTTSPlaying
-        case decisionIndex
-        case decisionCount
-        case selectedChoice
-        case selectedOption
-        case isTimeout
-        case isFirstRequest
-    }
+    // MARK: - Init
 
     private init(session: WCSession = .default) {
         self.session = session
         super.init()
         self.session.delegate = self
-        session.activate()
+        self.session.activate()
     }
 
-    func session(_ session: WCSession, didReceiveMessage message: [String: Any])
-    {
+    // MARK: - Receive
+
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         DispatchQueue.main.async {
-            if let isTTSPlaying = message[messageKey.isTTSPlaying.rawValue]
-                as? Bool
-            {
-                self.isTTSPlaying = isTTSPlaying
+            guard let decoded = self.decode(message, as: WatchToIosMessage.self) else { return }
+            if let v = decoded.isTTSPlaying { self.isTTSPlaying = v }
+            if let v = decoded.decisionIndex { self.decisionIndex = v }
+            if let v = decoded.decisionCount { self.decisionCount = v }
+            if let v = decoded.isTimeout { self.isTimeout = v }
+            if let v = decoded.isFirstRequest { self.isFirstRequest = v }
+            if let raw = decoded.selectedChoice {
+                self.selectedOption = StoryChoiceOption(rawValue: raw)
             }
-
-            if let decisionIndex = message[messageKey.decisionIndex.rawValue]
-                as? Int
-            {
-                self.decisionIndex = decisionIndex
-            }
-
-            if let decisionCount = message[messageKey.decisionCount.rawValue]
-                as? Int
-            {
-                self.decisionCount = decisionCount
-            }
-
-            if let isTimeout = message[messageKey.isTimeout.rawValue] as? Bool {
-                self.isTimeout = isTimeout
-            }
-
-            if let isFirstRequest = message[messageKey.isFirstRequest.rawValue]
-                as? Bool
-            {
-                self.isFirstRequest = isFirstRequest
-            }
-
-            if let selectedChoiceRaw = message[
-                messageKey.selectedChoice.rawValue] as? String,
-                let selectedChoice = StoryChoiceOption(
-                    rawValue: selectedChoiceRaw)
-            {
-                //                self.selectedOption = nil
-                //                DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-                self.selectedOption = selectedChoice
-                //                }
-            }
-
         }
     }
 
-    func sendStageIdle() {
-        let message: [String: Any] = [
-            "currentStage": "idle",
-            "hasStartedContent": true,
-        ]
+    // MARK: - Send
 
-        let session = WCSession.default
-        Log.debug("idle message 보내기: \(message)")
+    func sendStageIdle(retryCount: Int = 0) {
+        guard retryCount < 3 else {
+            Log.warning("Watch 연결 실패 — 재시도 횟수 초과")
+            return
+        }
 
-        if session.isReachable {
-            Log.debug("워치로 idle 메시지 전송")
-            session.sendMessage(message, replyHandler: nil)
-        } else {
-            Log.warning("세션 도달 불가. 1초 뒤 재시도.")
+        guard session.isReachable else {
+            Log.warning("세션 도달 불가. 1초 뒤 재시도. (\(retryCount + 1)/3)")
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                self.sendStageIdle()
+                self.sendStageIdle(retryCount: retryCount + 1)
             }
+            return
         }
+
+        Log.debug("워치로 idle 메시지 전송")
+        send(["currentStage": "idle", "hasStartedContent": true])
     }
 
-    func sendStageExpositionWithPause() {
-        let message: [String: Any] = [
-            "currentStage": "exposition",
-            "isTTSPlaying": false,
-        ]
-        let session = WCSession.default
-        if session.isReachable {
-            session.sendMessage(message, replyHandler: nil)
-        }
-    }
-
-    func sendStageExpositionWithResume() {
-        let message: [String: Any] = [
-            "currentStage": "exposition",
-            "isTTSPlaying": true,
-        ]
-        let session = WCSession.default
-        if session.isReachable {
-            session.sendMessage(message, replyHandler: nil)
-        }
-    }
-
-    func sendStageDecisionWithFirstTTS(_ decisionIndex: Int) {
-        let message: [String: Any] = [
+    func sendStageDecision(decisionIndex: Int, isTimerRunning: Bool, isFirstRequest: Bool) {
+        send([
             "currentStage": "decision",
-            "isTimerRunning": false,
+            "isTimerRunning": isTimerRunning,
             "decisionIndex": decisionIndex,
-            "isFirstRequest": true,
-        ]
-        let session = WCSession.default
-        if session.isReachable {
-            session.sendMessage(message, replyHandler: nil)
-        }
+            "isFirstRequest": isFirstRequest,
+        ])
     }
 
-    func sendStageDecisionWithFirstTimer(_ decisionIndex: Int) {
-        let message: [String: Any] = [
-            "currentStage": "decision",
-            "isTimerRunning": true,
-            "decisionIndex": decisionIndex,
-            "isFirstRequest": true,
-        ]
-        let session = WCSession.default
-        if session.isReachable {
-            session.sendMessage(message, replyHandler: nil)
-        }
+    func sendStageEnding(isTimerRunning: Bool) {
+        send(["currentStage": "ending", "isTimerRunning": isTimerRunning])
     }
 
-    func sendStageDecisionWithSecTTS(_ decisionIndex: Int) {
-        let message: [String: Any] = [
-            "currentStage": "decision",
-            "isTimerRunning": false,
-            "decisionIndex": decisionIndex,
-            "isFirstRequest": false,
-        ]
-        let session = WCSession.default
-        if session.isReachable {
-            session.sendMessage(message, replyHandler: nil)
-        }
-    }
-
-    func sendStageDecisionWithSecTimer(_ decisionIndex: Int) {
-        let message: [String: Any] = [
-            "currentStage": "decision",
-            "isTimerRunning": true,
-            "decisionIndex": decisionIndex,
-            "isFirstRequest": false,
-        ]
-        let session = WCSession.default
-        if session.isReachable {
-            session.sendMessage(message, replyHandler: nil)
-        }
+    func sendStageExposition(isTTSPlaying: Bool) {
+        send(["currentStage": "exposition", "isTTSPlaying": isTTSPlaying])
     }
 
     func sendChoiceInterrupt() {
-        let session = WCSession.default
-        if session.isReachable {
-            session.sendMessage(
-                [
-                    "currentStage": "decision",
-                    "isInterrupted": true,
-                ], replyHandler: nil)
-        }
+        send(["currentStage": "decision", "isInterrupted": true])
     }
 
-    func sendStageEndingTTS() {
-        let message: [String: Any] = [
-            "currentStage": "ending",
-            "isTimerRunning": false,
-        ]
-        let session = WCSession.default
-        if session.isReachable {
-            session.sendMessage(message, replyHandler: nil)
-        }
+    // MARK: - Private
+
+    private func send(_ message: [String: Any]) {
+        guard session.isReachable else { return }
+        session.sendMessage(message, replyHandler: nil)
     }
 
-    func sendStageEndingTimer() {
-        let message: [String: Any] = [
-            "currentStage": "ending",
-            "isTimerRunning": true,
-        ]
-        let session = WCSession.default
-        if session.isReachable {
-            session.sendMessage(message, replyHandler: nil)
-        }
+    private func decode<T: Decodable>(_ message: [String: Any], as type: T.Type) -> T? {
+        guard let data = try? JSONSerialization.data(withJSONObject: message) else { return nil }
+        return try? JSONDecoder().decode(T.self, from: data)
     }
+
+    // MARK: - Session Delegate
 
     func session(
         _ session: WCSession,
         activationDidCompleteWith activationState: WCSessionActivationState,
         error: Error?
-    ) {
+    ) {}
 
-    }
+    func sessionDidBecomeInactive(_ session: WCSession) {}
 
-    func sessionDidBecomeInactive(_ session: WCSession) {
+    func sessionDidDeactivate(_ session: WCSession) {}
+}
 
-    }
+// MARK: - Message Model
 
-    func sessionDidDeactivate(_ session: WCSession) {
-
-    }
+private struct WatchToIosMessage: Decodable {
+    var isTTSPlaying: Bool?
+    var decisionIndex: Int?
+    var decisionCount: Int?
+    var isTimeout: Bool?
+    var isFirstRequest: Bool?
+    var selectedChoice: String?
 }

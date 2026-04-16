@@ -43,15 +43,23 @@ struct TournamentView: View {
                         b: secondCandiate.name,
                         onSelectA: {
                             tournamentViewModel.selectedOption = .a
-                            tournamentViewModel.handleSelection(firstCandidate)
+                            tournamentViewModel.processSelection(firstCandidate)
                         },
                         onSelectB: {
                             tournamentViewModel.selectedOption = .b
-                            tournamentViewModel.handleSelection(secondCandiate)
+                            tournamentViewModel.processSelection(secondCandiate)
                         },
                         buttonDisabled: tournamentViewModel.isTTSPlaying,
                         selectedOption: tournamentViewModel.selectedOption
                     )
+                    
+                    Spacer()
+
+                    TTSControlButton(
+                        isSpeaking: tournamentViewModel.isTTSPlaying
+                    ) {
+                        tournamentViewModel.toggleSpeaking()
+                    }
                 } else {
                     ProgressView()
                 }
@@ -61,7 +69,7 @@ struct TournamentView: View {
         .task {
             tournamentViewModel.configure(context: context)
             tournamentViewModel.loadTournament()
-            tournamentViewModel.speakCurrentMatch()
+            tournamentViewModel.speakMatchIntro()
         }
     }
 }

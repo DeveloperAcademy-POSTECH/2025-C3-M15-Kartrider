@@ -74,7 +74,7 @@ struct StoryView: View {
             Task {
                 await MainActor.run { storyViewModel.isSequenceInProgress = true }
                 try? await Task.sleep(for: .milliseconds(300))
-                await storyViewModel.handleStoryNode(storyNode)
+                await storyViewModel.processNode(storyNode)
             }
         }
     }

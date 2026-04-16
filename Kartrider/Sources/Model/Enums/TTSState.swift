@@ -9,5 +9,4 @@ enum TTSState {
     case inactive
     case playing
     case paused
-    case finished
 }
