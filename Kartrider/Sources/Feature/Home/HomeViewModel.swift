@@ -13,20 +13,20 @@ class HomeViewModel: ObservableObject {
     @Published var contents: [ContentMeta] = []
     @Published var selectedIndex: Int = 0
     
-    private let contentRepository: ContentRepositoryProtocol
-    
-    init(repository: ContentRepositoryProtocol = ContentRepository()) {
-        self.contentRepository = repository
+    private var contentRepository: ContentRepositoryProtocol?
+
+    func configure(context: ModelContext) {
+        contentRepository = ContentRepository(context: context)
     }
-    
-    func loadContents(context: ModelContext) {
+
+    func loadContents() {
         do {
-            contents = try contentRepository.fetchAllContents(context: context)
+            contents = try contentRepository?.fetchAllContents() ?? []
         } catch {
-            Log.error("컨텐츠 로딩 실패 : \(error)")
+            Log.error("컨텐츠 로딩 실패: \(error)")
         }
     }
-    
+
     func selectContent(_ selected: ContentMeta) {
         if let index = contents.firstIndex(of: selected) {
             selectedIndex = index

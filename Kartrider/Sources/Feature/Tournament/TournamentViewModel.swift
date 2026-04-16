@@ -26,11 +26,16 @@ class TournamentViewModel: ObservableObject {
         }
     }
 
-    @Published var isFinished = false
+    @Published var isFinished = false {
+        didSet {
+            guard isFinished else { return }
+            finishTournamentAndSave()
+        }
+    }
     @Published var winner: Candidate?
 
-    private let contentRepository: ContentRepositoryProtocol
-    private let historyRepository: PlayHistoryRepositoryProtocol
+    private var contentRepository: ContentRepositoryProtocol?
+    private var historyRepository: PlayHistoryRepositoryProtocol?
     private let tournamentId: UUID
     private var tournament: Tournament?
     private var nextRoundCandidates: [Candidate] = []
@@ -56,9 +61,6 @@ class TournamentViewModel: ObservableObject {
 
     init(
         content: ContentMeta,
-        contentRepository: ContentRepositoryProtocol = ContentRepository(),
-        historyRepository: PlayHistoryRepositoryProtocol =
-            PlayHistoryRepository()
     ) {
         guard let tournament = content.tournament else {
             Log.fault("TournamentViewModel 초기화 실패 — content.tournament가 nil")
@@ -66,8 +68,6 @@ class TournamentViewModel: ObservableObject {
         }
         self.tournament = tournament
         tournamentId = tournament.id
-        self.contentRepository = contentRepository
-        self.historyRepository = historyRepository
         title = content.title
 
         connectManager.$selectedOption
@@ -104,6 +104,11 @@ class TournamentViewModel: ObservableObject {
         Log.info("TournamentViewModel deinit")
     }
 
+    func configure(context: ModelContext) {
+        contentRepository = ContentRepository(context: context)
+        historyRepository = PlayHistoryRepository(context: context)
+    }
+
     func cleanup() {
         decisionTask?.cancel()
         decisionTask = nil
@@ -111,20 +116,13 @@ class TournamentViewModel: ObservableObject {
         selectionTask = nil
         ttsManager.stop()
     }
-    
-    func setContext(_ context: ModelContext) {
-        self.context = context
-    }
 
     @MainActor
-    func loadTournament(context: ModelContext) {
+    func loadTournament() {
         do {
-            guard
-                let tournament = try contentRepository.fetchTournament(
-                    by: tournamentId, context: context
-                )
+            guard let tournament = try contentRepository?.fetchTournament(by: tournamentId)
             else {
-                Log.error("토너먼트 찾을 수 없음")
+                Log.error("토너먼트 데이터 없음")
                 return
             }
             self.tournament = tournament
@@ -150,7 +148,7 @@ class TournamentViewModel: ObservableObject {
                 winner = nextRoundCandidates.first
                 isFinished = true
                 currentCandidates = nil
-                if let context { finishTournamentAndSave(context: context) }
+                if let context { finishTournamentAndSave() }
                 Task { await handleTournamentEndingTTS() }
             } else {
                 // 다음 라운드 준비
@@ -191,16 +189,14 @@ class TournamentViewModel: ObservableObject {
         round
     }
 
-    func finishTournamentAndSave(context: ModelContext) {
-        guard let winner, let tournament else { return }
+    func finishTournamentAndSave() {
+        guard let winner = winner, let tournament = tournament else { return }
         do {
-            try historyRepository.saveTournamentHistory(
-                context: context,
+            try historyRepository?.saveTournamentHistory(
                 tournament: tournament,
                 winner: winner,
                 matchHistory: matchHistory
             )
-            Log.info("토너먼트 히스토리 저장 완료")
         } catch {
             Log.error("토너먼트 히스토리 저장 실패: \(error)")
         }
