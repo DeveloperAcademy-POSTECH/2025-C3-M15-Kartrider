@@ -23,7 +23,7 @@ struct StoryView: View {
             navStyle: NavigationBarStyle.play(
                 title: storyViewModel.content.title),
             onTapLeft: {
-                storyViewModel.ttsManager.pause()
+                storyViewModel.cleanup()
                 coordinator.pop()
             }
         ) {
