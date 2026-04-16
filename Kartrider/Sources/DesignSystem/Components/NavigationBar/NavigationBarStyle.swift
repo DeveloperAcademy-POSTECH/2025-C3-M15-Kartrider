@@ -20,6 +20,8 @@ enum NavigationBarStyle: Equatable {
         switch self {
         case .home:
             return nil
+        case .archive:
+            return .back(color: .black)
         case .historyDetail:
             return .back(color: .white)
         default:
@@ -30,8 +32,7 @@ enum NavigationBarStyle: Equatable {
     var rightButton: NavigationButtonConfig? {
         switch self {
         case .home:
-            return nil
-//            return .book(color: .black)
+            return .book(color: .black)
         default:
             return nil
         }
@@ -55,14 +56,6 @@ enum NavigationBarStyle: Equatable {
             Image("logo")
                 .resizable()
                 .frame(width: 72, height: 39)
-        case .archive:
-            HStack(spacing: 4) {
-                Image(systemName: NavigationButtonType.back.iconName)
-                    .foregroundColor(.black)
-                Text("home")
-                    .foregroundColor(.gray)
-                    .font(.body)
-            }
         default:
             if let left = leftButton {
                 Image(systemName: left.type.iconName)
