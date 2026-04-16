@@ -21,6 +21,14 @@ final class TTSManager: NSObject, @unchecked Sendable, ObservableObject {
         synthesizer.delegate = self
     }
 
+    deinit {
+        Log.debug("TTSManager deinit")
+        synthesizer.stopSpeaking(at: .immediate)
+        synthesizer.delegate = nil
+        currentContinuation?.resume()
+        currentContinuation = nil
+    }
+
     // TODO: 전체적인 개선이 필요해 보임
     func speakSequentially(_ text: String) async {
         print("[INFO] speakSequentially 호출")
@@ -28,6 +36,10 @@ final class TTSManager: NSObject, @unchecked Sendable, ObservableObject {
         guard !Task.isCancelled else { return }
 
         while await self.state == .paused {
+            guard !Task.isCancelled else {
+                print("[DEBUG] [speakSequentially] 일시정지 상태에서 중단")
+                return
+            }
             print("[DEBUG] [speakSequentially] 일시정지 상태, 대기 중...")
             try? await Task.sleep(for: .milliseconds(100))
         }
@@ -38,6 +50,11 @@ final class TTSManager: NSObject, @unchecked Sendable, ObservableObject {
             return
         }
 
+        guard !Task.isCancelled else {
+            print("[DEBUG] 중단")
+            return
+        }
+        
         await MainActor.run {
             self.state = .playing
         }

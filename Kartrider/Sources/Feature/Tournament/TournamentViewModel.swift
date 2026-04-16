@@ -37,6 +37,7 @@ class TournamentViewModel: ObservableObject {
     private var rounds: [[Candidate]] = []
     private var currentRoundIndex = 0 // 지금 몇 라운드인지 ex. 8강, 4강, 결승
     private var currentMatchIndex = 0 // 지금 라운드에서 몇번째 매치인지
+    private var selectionTask: Task<Void, Never>?
 
     var currentRoundDescription: String {
         guard rounds.indices.contains(currentRoundIndex) else { return "" }
@@ -97,17 +98,17 @@ class TournamentViewModel: ObservableObject {
 
     deinit {
         decisionTask?.cancel()
+        selectionTask?.cancel()
         cancellable.removeAll()
-        let tts = ttsManager
-        DispatchQueue.main.async {
-            tts.stop()
-        }
+        ttsManager.stop()
         Log.info("TournamentViewModel deinit")
     }
 
     func cleanup() {
         decisionTask?.cancel()
         decisionTask = nil
+        selectionTask?.cancel()
+        selectionTask = nil
         ttsManager.stop()
     }
     
@@ -206,17 +207,30 @@ class TournamentViewModel: ObservableObject {
     }
 
     func handleSelection(_ candidate: Candidate) {
-        Task {
-            // TODO: ttsManager.stop : Async함수 아님
+        selectionTask?.cancel()
+
+        selectionTask = Task { [weak self] in
+            guard let self else { return }
+
+            guard !Task.isCancelled else { return }
+
             ttsManager.stop()
             connectManager.sendChoiceInterrupt()
+
+            guard !Task.isCancelled else { return }
             await speakSelectedChoice(candidate)
+
+            guard !Task.isCancelled else { return }
             try? await Task.sleep(nanoseconds: 200_000_000)
 
+            guard !Task.isCancelled else { return }
             await select(candidate)
+
             await MainActor.run {
                 self.decisionIndex += 1
             }
+
+            guard !Task.isCancelled else { return }
             await speakCurrentMatch()
         }
     }
@@ -230,7 +244,9 @@ class TournamentViewModel: ObservableObject {
         connectManager.isTimeout = false
         connectManager.isFirstRequest = true
 
-        decisionTask = Task {
+        decisionTask = Task { [weak self] in
+            guard let self else { return }
+
             connectManager.sendStageDecisionWithFirstTTS(
                 decisionIndex)
             await MainActor.run { self.isTTSPlaying = true }
@@ -253,7 +269,9 @@ class TournamentViewModel: ObservableObject {
             "B. \(b.name)",
         ]
 
-        decisionTask = Task {
+        decisionTask = Task { [weak self] in
+            guard let self else { return }
+
             connectManager.sendStageDecisionWithSecTTS(decisionIndex)
             await MainActor.run { self.isTTSPlaying = true }
             for text in texts {

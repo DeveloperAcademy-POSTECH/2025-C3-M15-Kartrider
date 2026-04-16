@@ -32,6 +32,7 @@ class StoryViewModel: ObservableObject {
     @Published var decisionIndex = 0
     private var secPlayed = false
     private var decisionTask: Task<Void, Never>?
+    private var nodeHandlingTask: Task<Void, Never>?
 
     var ttsManager = TTSManager()
 
@@ -85,20 +86,20 @@ class StoryViewModel: ObservableObject {
 
     deinit {
         decisionTask?.cancel()
+        nodeHandlingTask?.cancel()
         cancellable.removeAll()
-        let tts = ttsManager
-        DispatchQueue.main.async {
-            tts.stop()
-        }
+        ttsManager.stop()
         Log.info("StoryViewModel deinit")
     }
 
     func cleanup() {
         decisionTask?.cancel()
         decisionTask = nil
+        nodeHandlingTask?.cancel()
+        nodeHandlingTask = nil
         ttsManager.stop()
     }
-    
+
     @MainActor
     func loadInitialNode(context: ModelContext) async {
         isLoading = true
@@ -157,25 +158,36 @@ class StoryViewModel: ObservableObject {
 
     @MainActor
     func handleStoryNode(_ node: StoryNode, context: ModelContext) async {
-        //        await ttsManager.speakSequentially(node.text)
-        isSequenceInProgress = true
+        nodeHandlingTask?.cancel()
 
-        if node.type == .decision {
-            connectManager.isTimeout = false
-            connectManager.isFirstRequest = true
-            secPlayed = false
-            firstDecision(node: node)
+        nodeHandlingTask = Task { [weak self] in
+            guard let self else { return }
 
-        } else if node.nextId == nil {
-            endingId = checkEndingCondition()
-            await goToEndingNode(toId: endingId, context: context)
+            isSequenceInProgress = true
 
-        } else if node.type == .exposition {
-            connectManager.sendStageExpositionWithResume()
-            await ttsManager.speakSequentially(node.text)
-            goToNextNode(from: node)
+            if node.type == .decision {
+                guard !Task.isCancelled else { return }
+                connectManager.isTimeout = false
+                connectManager.isFirstRequest = true
+                secPlayed = false
+                firstDecision(node: node)
+
+            } else if node.nextId == nil {
+                guard !Task.isCancelled else { return }
+                endingId = checkEndingCondition()
+                await goToEndingNode(toId: endingId, context: context)
+
+            } else if node.type == .exposition {
+                guard !Task.isCancelled else { return }
+                connectManager.sendStageExpositionWithResume()
+                await ttsManager.speakSequentially(node.text)
+
+                guard !Task.isCancelled else { return }
+                goToNextNode(from: node)
+            }
+
+            isSequenceInProgress = false
         }
-        isSequenceInProgress = false
     }
 
     private func checkEndingCondition() -> String {
@@ -251,7 +263,9 @@ class StoryViewModel: ObservableObject {
 
     func firstDecision(node: StoryNode) {
         decisionTask?.cancel()
-        decisionTask = Task {
+        decisionTask = Task { [weak self] in
+            guard let self else { return }
+
             connectManager.sendStageDecisionWithFirstTTS(decisionIndex)
             if !node.text.isEmpty {
                 await ttsManager.speakSequentially(node.text)
@@ -275,7 +289,9 @@ class StoryViewModel: ObservableObject {
             "B. \(node.choiceB?.text ?? "")",
         ]
 
-        decisionTask = Task {
+        decisionTask = Task { [weak self] in
+            guard let self else { return }
+
             secPlayed = true
             connectManager.sendStageDecisionWithSecTTS(decisionIndex)
             for text in texts {
