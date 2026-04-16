@@ -11,8 +11,8 @@ import SwiftData
 @MainActor
 struct Seeder {
     static func seedAll(context: ModelContext) async {
-        await deleteAll(context: context)
-        
+        await deleteContentData(context: context)
+
         do {
             try JSONParser<StoryJSON>(fileName: Constants.JSONFileName.storyEmpty).insertData(into: context)
             Log.debug("Story 시드 완료")
@@ -28,7 +28,7 @@ struct Seeder {
         }
     }
         
-    static func deleteAll(context: ModelContext) async {
+    static func deleteContentData(context: ModelContext) async {
         let models: [any PersistentModel.Type] = [
             ContentMeta.self,
             Story.self,
@@ -37,9 +37,6 @@ struct Seeder {
             EndingCondition.self,
             Tournament.self,
             Candidate.self,
-            PlayHistory.self,
-            StoryStep.self,
-            TournamentStep.self
         ]
         
         do {
@@ -50,17 +47,6 @@ struct Seeder {
             Log.debug("모든 SwiftData 데이터 삭제 완료")
         } catch {
             Log.error("데이터 삭제 실패: \(error)")
-        }
-    }
-    
-    static func printState(context: ModelContext) async {
-        do {
-            let storyCount = try context.fetch(FetchDescriptor<Story>()).count
-            let tournamentCount = try context.fetch(FetchDescriptor<Tournament>()).count
-            let candidateCount = try context.fetch(FetchDescriptor<Candidate>()).count
-            Log.debug("Story: \(storyCount), Tournament: \(tournamentCount), Candidate: \(candidateCount)")
-        } catch {
-            Log.error("카운트 확인 실패: \(error)")
         }
     }
 }
