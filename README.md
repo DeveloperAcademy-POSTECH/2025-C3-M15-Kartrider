@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Apple Watch 제스처 기반 선택형 인터랙티브 콘텐츠 플랫폼</strong><br/>
-  Apple Developer Academy @ POSTECH · 6인 팀 프로젝트
+  Apple Developer Academy @ POSTECH 4기 · 챌린지3
 </p>
 
 <p align="center">
