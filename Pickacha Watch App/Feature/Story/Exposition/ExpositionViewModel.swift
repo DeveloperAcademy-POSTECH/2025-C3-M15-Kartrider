@@ -10,11 +10,16 @@ import Foundation
 
 class ExpositionViewModel: ObservableObject {
 
-    let connectManager = WatchConnectManager.shared
+    // MARK: - Properties
 
+    let connectManager = WatchConnectManager.shared
     private var cancellable = Set<AnyCancellable>()
 
+    // MARK: - Published
+
     @Published var isTTSPlaying = true
+
+    // MARK: - Init
 
     init() {
         connectManager.$isTTSPlaying
@@ -23,10 +28,11 @@ class ExpositionViewModel: ObservableObject {
             .store(in: &cancellable)
     }
 
+    // MARK: - Action
+
     func toggleStateWatch() {
         isTTSPlaying.toggle()
         connectManager.isTTSPlaying = isTTSPlaying
-
         connectManager.sendStageExposition(isTTSPlaying: isTTSPlaying)
     }
 }

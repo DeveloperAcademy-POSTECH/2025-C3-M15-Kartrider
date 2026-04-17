@@ -11,40 +11,46 @@ import WatchKit
 
 class WatchOutroViewModel: ObservableObject {
 
+    // MARK: - Properties
+
     let connectManager = WatchConnectManager.shared
 
     private var cancellable = Set<AnyCancellable>()
+    private var timer: Timer?
+
+    // MARK: - Published
 
     @Published var time = 10
     @Published var progress: CGFloat = 1.0
     @Published var isTimerRunning = false
-    private var timer: Timer?
+
+    // MARK: - Init
 
     init() {
         connectManager.$isTimerRunning
             .receive(on: DispatchQueue.main)
-            .sink { newValue in
-                if newValue {
-                    self.startTimer()
-                }
-                self.isTimerRunning = newValue
+            .sink { [weak self] newValue in
+                guard let self else { return }
+                isTimerRunning = newValue
+                if newValue { startTimer() }
             }
             .store(in: &cancellable)
     }
 
+    // MARK: - Timer
+
     func startTimer() {
-        guard !isTimerRunning else { return }
+        guard timer == nil else { return }
 
-        isTimerRunning = true
-        connectManager.isTimerRunning = true
-
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            if self.time > 0 {
-                self.time -= 1
-                self.progress = CGFloat(self.time) / 10.0
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            if time > 0 {
+                time -= 1
+                progress = CGFloat(time) / 10.0
                 WKInterfaceDevice.current().play(.start)
             } else {
-                self.timer?.invalidate()
+                timer?.invalidate()
+                timer = nil
             }
         }
     }
