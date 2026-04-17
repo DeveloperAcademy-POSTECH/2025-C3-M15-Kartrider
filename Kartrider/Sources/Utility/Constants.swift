@@ -1,5 +1,5 @@
 //
-//  Constatns.swift
+//  Constants.swift
 //  Kartrider
 //
 //  Created by J on 6/28/25.
