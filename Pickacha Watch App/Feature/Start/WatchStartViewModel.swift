@@ -11,12 +11,17 @@ import Foundation
 
 class WatchStartViewModel: ObservableObject {
 
-    let connectManager = WatchConnectManager.shared
+    // MARK: - Properties
 
+    let connectManager = WatchConnectManager.shared
     private let synthesizer = AVSpeechSynthesizer()
     private var cancellable = Set<AnyCancellable>()
 
+    // MARK: - Published
+
     @Published var hasStartedContent = false
+
+    // MARK: - Init
 
     init() {
         connectManager.$hasStartedContent
@@ -25,13 +30,15 @@ class WatchStartViewModel: ObservableObject {
             .store(in: &cancellable)
     }
 
-    func speak(_ text: String) {
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "ko-KR")
-        synthesizer.speak(utterance)
-    }
+    // MARK: - TTS
 
     func speakIntro() {
         speak("이야기를 감상하려면 iPhone에서 앱을 실행해 주세요.")
+    }
+
+    private func speak(_ text: String) {
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: "ko-KR")
+        synthesizer.speak(utterance)
     }
 }

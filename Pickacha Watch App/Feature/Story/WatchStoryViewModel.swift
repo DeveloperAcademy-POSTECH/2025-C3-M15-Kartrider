@@ -10,11 +10,16 @@ import Foundation
 
 class WatchStoryViewModel: ObservableObject {
 
-    let connectManager = WatchConnectManager.shared
+    // MARK: - Properties
 
+    let connectManager = WatchConnectManager.shared
     private var cancellable = Set<AnyCancellable>()
 
+    // MARK: - Published
+
     @Published var currentStage: String = Stage.idle.rawValue
+
+    // MARK: - Init
 
     init() {
         connectManager.$currentStage
