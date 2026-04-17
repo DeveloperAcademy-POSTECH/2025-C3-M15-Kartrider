@@ -43,6 +43,15 @@ struct TournamentMatchView: View {
     }
 }
 
-#Preview {
-    TournamentMatchView(roundDescription: "결승\n1번째 경기 중 1번째", a: "젤리", b: "펩시 제로 슈거 라임향", onSelectA: {}, onSelectB: {})
+#Preview("매치") {
+    TournamentMatchView(
+        roundDescription: "4강\n2개의 경기 중 1번째 경기",
+        a: "아이스크림",
+        b: "초콜릿",
+        onSelectA: {},
+        onSelectB: {},
+        buttonDisabled: false,
+        selectedOption: nil
+    )
+    .environmentObject(NavigationCoordinator())
 }

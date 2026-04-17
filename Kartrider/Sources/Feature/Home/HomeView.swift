@@ -44,3 +44,14 @@ struct HomeView: View {
         }
     }
 }
+
+#Preview {
+    let helper = PreviewHelper()
+    helper.makeStory(meta: helper.makeStoryMeta())
+    helper.makeTournament(meta: helper.makeTournamentMeta())
+    try? helper.context.save()
+
+    return HomeView()
+        .modelContainer(helper.container)
+        .environmentObject(NavigationCoordinator())
+}

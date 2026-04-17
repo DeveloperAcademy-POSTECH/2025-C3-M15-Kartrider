@@ -45,6 +45,21 @@ struct ContentSummaryView: View {
 }
 
 #Preview {
-    ContentSummaryView()
+    let helper = PreviewHelper()
+
+    let storyMeta = helper.makeStoryMeta()
+    helper.makeStory(meta: storyMeta)
+    helper.makeStoryHistory(meta: storyMeta)
+
+    let tournamentMeta = helper.makeTournamentMeta()
+    let tournament = helper.makeTournament(meta: tournamentMeta)
+    if let winner = tournament.candidates.first {
+        helper.makeTournamentHistory(meta: tournamentMeta, winner: winner)
+    }
+
+    try? helper.context.save()
+
+    return ContentSummaryView()
+        .modelContainer(helper.container)
         .environmentObject(NavigationCoordinator())
 }

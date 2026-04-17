@@ -78,18 +78,27 @@ struct StoryView: View {
             }
         }
     }
+}
 
-    #Preview {
-        let contentSample = ContentMeta(
-            title: "title sample",
-            summary: "summary sample",
-            type: .story,
-            hashtags: [
-                Hashtag(value: "빙의"),
-                Hashtag(value: "LOL"),
-            ],
-            thumbnailName: nil
-        )
-        StoryView(content: contentSample)
-    }
+#Preview("선택 노드") {
+    let helper = PreviewHelper()
+    let meta = helper.makeStoryMeta()
+    let story = helper.makeStory(meta: meta)
+    try? helper.context.save()
+
+    let node = story.nodes.first(where: { $0.type == .decision })!
+    return DecisionNodeView(
+        storyNode: node,
+        isDisabled: false,
+        selectChoice: { _ in }
+    )
+    .modelContainer(helper.container)
+}
+
+#Preview("결말 노드") {
+    EndingNodeView(title: "조용한 기다림")
+}
+
+#Preview("텍스트 박스") {
+    DescriptionBoxView(text: "지유가 차에 탔다. 현우 선배를 발견했다.")
 }

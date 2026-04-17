@@ -69,43 +69,16 @@ struct HistoryRowView: View {
 }
 
 #Preview {
-    let schema = Schema([
-        ContentMeta.self,
-        PlayHistory.self,
-        Story.self,
-        StoryNode.self,
-        StoryChoice.self,
-        EndingCondition.self,
-        Tournament.self,
-        Candidate.self,
-        StoryStep.self,
-        TournamentStep.self,
-        Hashtag.self
-    ])
-    let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: schema, configurations: [config])
-    let context = container.mainContext
-
-    // 목 데이터
-    let hashtags = [Hashtag(value: "시대"), Hashtag(value: "장르"), Hashtag(value: "진격거")]
-    let meta = ContentMeta(
-        title: "진격의 거인",
-        summary: "summary",
-        type: .story,
-        hashtags: hashtags,
-        thumbnailName: nil
-    )
-    context.insert(meta)
-
-    let history = PlayHistory(content: meta)
-    history.endedAt = Date()
-    history.reachedEndingIndex = 1
-    context.insert(history)
+    let helper = PreviewHelper()
+    let meta = helper.makeStoryMeta()
+    helper.makeStory(meta: meta)
+    let history = helper.makeStoryHistory(meta: meta)
+    try? helper.context.save()
 
     return HistoryRowView(
         history: history,
         endingTitle: "조용한 기다림",
         date: "2025.05.28"
     )
-    .modelContainer(container)
+    .modelContainer(helper.container)
 }
