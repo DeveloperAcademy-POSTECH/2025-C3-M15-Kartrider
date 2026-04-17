@@ -7,11 +7,9 @@
 
 import SwiftUI
 
-// MARK: 제발 개행을 신경써!!!!!
 struct AppNavigationView: View {
 
     @StateObject var coordinator = NavigationCoordinator()
-    @StateObject private var ttsManager = TTSManager()
 
     var body: some View {
         NavigationStack(path: $coordinator.path) {
@@ -26,8 +24,6 @@ struct AppNavigationView: View {
                         StoryView(content: content)
                     case .tournament(let content):
                         TournamentView(content: content)
-                    case .outro:
-                        OutroView()
                     case .contentSummary:
                         ContentSummaryView()
                     case .contentPlayback(let history):
@@ -36,7 +32,6 @@ struct AppNavigationView: View {
                 }
         }
         .environmentObject(coordinator)
-        .environmentObject(ttsManager)
     }
 }
 
