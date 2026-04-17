@@ -29,6 +29,7 @@ struct TournamentResultView: View {
     }
 }
 
-#Preview {
-    TournamentResultView(winner: "아이스크림", onNextTap: {})
+#Preview("결과") {
+    TournamentResultView(winner: "아이스크림") {}
+        .environmentObject(NavigationCoordinator())
 }

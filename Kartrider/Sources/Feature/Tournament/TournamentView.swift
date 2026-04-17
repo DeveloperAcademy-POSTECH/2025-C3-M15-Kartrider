@@ -74,20 +74,20 @@ struct TournamentView: View {
     }
 }
 
-
-#Preview {
-
-    let sample = ContentMeta(
-        title: "눈 떠보니 내가 T1 페이커?!",
-        summary: "2025 월즈가 코 앞인데 아이언인 내가 어느날 눈 떠보니 페이커 몸에 들어와버렸다.",
-        type: .story,
-        hashtags: [
-            Hashtag(value: "빙의"),
-            Hashtag(value: "LOL"),
-            Hashtag(value: "고트")
-        ],
-        thumbnailName: nil
+#Preview("매치") {
+    TournamentMatchView(
+        roundDescription: "4강\n2개의 경기 중 1번째 경기",
+        a: "아이스크림",
+        b: "초콜릿",
+        onSelectA: {},
+        onSelectB: {},
+        buttonDisabled: false,
+        selectedOption: nil
     )
+    .environmentObject(NavigationCoordinator())
+}
 
-    TournamentView(content: sample)
+#Preview("결과") {
+    TournamentResultView(winner: "아이스크림") {}
+        .environmentObject(NavigationCoordinator())
 }

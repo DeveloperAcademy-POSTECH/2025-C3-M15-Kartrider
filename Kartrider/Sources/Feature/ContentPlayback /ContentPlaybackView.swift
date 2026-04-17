@@ -160,78 +160,47 @@ struct ContentPlaybackView: View {
 }
 
 #Preview("스토리") {
-    let schema = Schema([
-        ContentMeta.self, PlayHistory.self, Story.self,
-        StoryNode.self, StoryChoice.self, EndingCondition.self,
-        Tournament.self, Candidate.self, StoryStep.self,
-        TournamentStep.self, Hashtag.self
-    ])
-    let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: schema, configurations: [config])
-    let context = container.mainContext
+    let helper = PreviewHelper()
+    let meta = helper.makeStoryMeta(title: "진격의 거인")
+    helper.makeStory(meta: meta)
+    let history = helper.makeStoryHistory(meta: meta)
 
-    let hashtags = [Hashtag(value: "시대"), Hashtag(value: "장르")]
-    let meta = ContentMeta(
-        title: "진격의 거인",
-        summary: "summary",
-        type: .story,
-        hashtags: hashtags,
-        thumbnailName: nil
+    let step1 = StoryStep(
+        nodeId: "node1",
+        type: .exposition,
+        nodeText: "지유가 차에 탔다.",
+        timestamp: Date(),
+        history: history
     )
-    context.insert(meta)
-
-    let story = Story(startNodeId: "node1", meta: meta)
-    context.insert(story)
-
-    let node1 = StoryNode(id: "node1", text: "지유 (차에 타며)\n\"어... 혹시... 현우 선배 아니에요?\"", type: .exposition, nextId: "node2", story: story)
-    let node2 = StoryNode(id: "node2", text: "말할까, 말까?", type: .decision, story: story)
-    let ending = StoryNode(id: "end1", text: "에렌 예거는 인류를 위협하는 마레 제국과 싸웠다.", type: .ending, endingIndex: 1, title: "조용한 기다림", story: story)
-    [node1, node2, ending].forEach { context.insert($0) }
-
-    let history = PlayHistory(content: meta)
-    history.endedAt = Date()
-    history.reachedEndingIndex = 1
-    context.insert(history)
-
-    let step1 = StoryStep(nodeId: "node1", type: .exposition, nodeText: node1.text, timestamp: Date(), history: history)
-    let step2 = StoryStep(nodeId: "node2", type: .decision, nodeText: node2.text, selectedChoice: .b, selectedText: "어디 가세요?", timestamp: Date(), history: history)
-    [step1, step2].forEach { _ in context.insert(step2) }
+    let step2 = StoryStep(
+        nodeId: "node2",
+        type: .decision,
+        nodeText: "말을 걸까, 말까?",
+        selectedChoice: .b,
+        selectedText: "어디 가세요?",
+        timestamp: Date(),
+        history: history
+    )
+    [step1, step2].forEach { helper.context.insert($0) }
+    try? helper.context.save()
 
     return ContentPlaybackView(history: history)
-        .modelContainer(container)
+        .modelContainer(helper.container)
         .environmentObject(NavigationCoordinator())
 }
 
 #Preview("토너먼트") {
-    let schema = Schema([
-        ContentMeta.self, PlayHistory.self, Story.self,
-        StoryNode.self, StoryChoice.self, EndingCondition.self,
-        Tournament.self, Candidate.self, StoryStep.self,
-        TournamentStep.self, Hashtag.self
-    ])
-    let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: schema, configurations: [config])
-    let context = container.mainContext
+    let helper = PreviewHelper()
+    let meta = helper.makeTournamentMeta(title: "간식 월드컵")
+    let tournament = helper.makeTournament(meta: meta)
+    try? helper.context.save()
 
-    let meta = ContentMeta(
-        title: "간식 월드컵 게임",
-        summary: "summary",
-        type: .tournament,
-        hashtags: [],
-        thumbnailName: nil
-    )
-    context.insert(meta)
+    // save 후 candidates 다시 확인
+    guard let winner = tournament.candidates.first else {
+        return Text("candidates 없음")
+    }
 
-    let tournament = Tournament(meta: meta)
-    context.insert(tournament)
-
-    let winner = Candidate(name: "아이스크림", tournament: tournament)
-    context.insert(winner)
-
-    let history = PlayHistory(content: meta)
-    history.endedAt = Date()
-    history.winningCandidateId = winner.id
-    context.insert(history)
+    let history = helper.makeTournamentHistory(meta: meta, winner: winner)
 
     for i in 1...10 {
         let step = TournamentStep(
@@ -239,14 +208,15 @@ struct ContentPlaybackView: View {
             matchIndex: i - 1,
             candidateAText: "후보 A",
             candidateBText: "후보 B",
-            selectedText: "아이스크림",
+            selectedText: winner.name,
             timestamp: Date(),
             history: history
         )
-        context.insert(step)
+        helper.context.insert(step)
     }
+    try? helper.context.save()
 
     return ContentPlaybackView(history: history)
-        .modelContainer(container)
+        .modelContainer(helper.container)
         .environmentObject(NavigationCoordinator())
 }
